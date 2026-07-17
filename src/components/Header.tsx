@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 interface HeaderProps {
@@ -21,13 +22,32 @@ export function Header({ onLoginClick }: HeaderProps) {
   return (
     <header className="header">
       <div className="header-brand">
-        <div className="header-icon">UAV</div>
-        <div>
-          <h1>无人机智能路径规划系统</h1>
-          <p>城市低空飞行 · 多源数据融合 · A* 智能路径优化</p>
-        </div>
+        <NavLink to="/" className="header-brand-link">
+          <div className="header-icon">UAV</div>
+          <div>
+            <h1>无人机智能路径规划系统</h1>
+            <p>城市低空飞行 · 多源数据融合 · A* 智能路径优化</p>
+          </div>
+        </NavLink>
       </div>
       <div className="header-actions">
+        <nav className="header-nav">
+          <NavLink to="/" end className={({ isActive }) => (isActive ? 'header-nav-link active' : 'header-nav-link')}>
+            首页
+          </NavLink>
+          <NavLink
+            to="/planner"
+            className={({ isActive }) => (isActive ? 'header-nav-link active' : 'header-nav-link')}
+          >
+            路径规划
+          </NavLink>
+          <NavLink
+            to="/about"
+            className={({ isActive }) => (isActive ? 'header-nav-link active' : 'header-nav-link')}
+          >
+            关于
+          </NavLink>
+        </nav>
         <div className="header-tags">
           <span>建筑避障</span>
           <span>噪音评估</span>
