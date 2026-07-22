@@ -26,6 +26,18 @@ export function PathDetailCard({ path }: PathDetailCardProps) {
           <dt>平均飞行高度</dt>
           <dd>{metrics.avgAltitudeM} m</dd>
         </div>
+        {metrics.is3D && metrics.maxAltitudeM !== undefined && (
+          <div>
+            <dt>最高飞行高度</dt>
+            <dd>{metrics.maxAltitudeM} m</dd>
+          </div>
+        )}
+        {metrics.is3D && metrics.totalClimbM !== undefined && (
+          <div>
+            <dt>累计爬升</dt>
+            <dd>{metrics.totalClimbM} m</dd>
+          </div>
+        )}
         <div>
           <dt>噪音等级</dt>
           <dd className={`noise-${metrics.noiseLevel}`}>{metrics.noiseLevel}</dd>

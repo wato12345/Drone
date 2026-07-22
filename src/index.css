@@ -534,7 +534,8 @@ body {
 .overlay-item.shortest::before,
 .overlay-item.optimized::before,
 .overlay-item.clearance-violation::before,
-.overlay-item.clearance-critical::before {
+.overlay-item.clearance-critical::before,
+.overlay-item.flight-3d::before {
   content: '';
   display: inline-block;
   width: 0.55rem;
@@ -557,6 +558,10 @@ body {
 
 .overlay-item.clearance-critical::before {
   background: #eab308;
+}
+
+.overlay-item.flight-3d::before {
+  background: linear-gradient(180deg, #38bdf8, #a855f7);
 }
 
 .marker {

@@ -5,6 +5,9 @@ export type PickMode = 'start' | 'end' | null
 export interface PathMetrics {
   distanceKm: number
   avgAltitudeM: number
+  maxAltitudeM?: number
+  totalClimbM?: number
+  is3D?: boolean
   noiseLevel: '低' | '中' | '高'
   windResistance: number
   buildingAvoidance: number
@@ -18,14 +21,18 @@ export interface PathClearanceSegment {
   coordinates: LngLat[]
 }
 
+export type LngLatAlt = [number, number, number]
+
 export interface PlannedPath {
   id: 'shortest' | 'optimized'
   label: string
   color: string
   coordinates: LngLat[]
+  coordinates3d?: LngLatAlt[]
   altitudes: number[]
   buildingClearances?: number[]
   segments?: PathClearanceSegment[]
+  is3D?: boolean
   metrics: PathMetrics
 }
 

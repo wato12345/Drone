@@ -16,11 +16,22 @@ import { WeatherOverlay } from './WeatherOverlay'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
 const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty'
+const BASE_CRUISE_M = 50
 
 const CLEARANCE_COLORS: Record<PathClearanceStatus, string | null> = {
   safe: null,
   violation: '#ef4444',
   critical: '#eab308',
+}
+
+function coordToPillarPolygon(lng: number, lat: number, size = 0.00007): LngLat[] {
+  return [
+    [lng - size, lat - size],
+    [lng + size, lat - size],
+    [lng + size, lat + size],
+    [lng - size, lat + size],
+    [lng - size, lat - size],
+  ]
 }
 
 function segmentColor(path: PlannedPath, status: PathClearanceStatus) {
@@ -111,6 +122,33 @@ export function MapView({
     })
 
     return sources
+  }, [paths])
+
+  const flightPillars = useMemo(() => {
+    const features: Array<{
+      type: 'Feature'
+      properties: { altitude: number; color: string }
+      geometry: { type: 'Polygon'; coordinates: LngLat[][] }
+    }> = []
+
+    paths.forEach((path) => {
+      if (!path.is3D) return
+      path.coordinates.forEach((coord, index) => {
+        if (index % 2 !== 0 && index !== path.coordinates.length - 1) return
+        const altitude = path.altitudes[index]
+        if (altitude <= BASE_CRUISE_M + 10) return
+        features.push({
+          type: 'Feature',
+          properties: { altitude, color: path.color },
+          geometry: {
+            type: 'Polygon',
+            coordinates: [coordToPillarPolygon(coord[0], coord[1])],
+          },
+        })
+      })
+    })
+
+    return { type: 'FeatureCollection' as const, features }
   }, [paths])
 
   const fitBounds = useCallback(() => {
@@ -217,6 +255,21 @@ export function MapView({
           </Source>
         ))}
 
+        {flightPillars.features.length > 0 && (
+          <Source id="flight-altitude-pillars" type="geojson" data={flightPillars}>
+            <Layer
+              id="flight-altitude-pillars-3d"
+              type="fill-extrusion"
+              paint={{
+                'fill-extrusion-color': ['get', 'color'],
+                'fill-extrusion-height': ['get', 'altitude'],
+                'fill-extrusion-base': 0,
+                'fill-extrusion-opacity': 0.55,
+              }}
+            />
+          </Source>
+        )}
+
         <Marker longitude={start[0]} latitude={start[1]} anchor="bottom">
           <div className="map-marker map-marker-start">
             {placeNamesLoading && !startPlaceName ? (
@@ -265,6 +318,9 @@ export function MapView({
       <div className="map-overlay">
         <div className="overlay-item shortest">最短路径</div>
         <div className="overlay-item optimized">智能优化路径</div>
+        {paths.some((path) => path.is3D) && (
+          <div className="overlay-item flight-3d">3D 爬升路径</div>
+        )}
         {paths.some((path) => path.segments?.some((segment) => segment.status !== 'safe')) && (
           <>
             <div className="overlay-item clearance-violation">未满足净空</div>
