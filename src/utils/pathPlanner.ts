@@ -1,5 +1,5 @@
 import type { BuildingFeature, LngLat, PathMetrics, PlannedPath } from '../types'
-import { bboxFromPoints, haversineKm, interpolateLngLat, pathLengthKm } from './geo'
+import { bboxFromPoints, haversineKm, pathLengthKm } from './geo'
 
 const GRID_SIZE = 24
 
@@ -252,56 +252,10 @@ function computeMetrics(
   }
 }
 
-export function generateDemoBuildings(start: LngLat, end: LngLat): BuildingFeature[] {
-  const bbox = bboxFromPoints([start, end], 0.001)
-  const mid = interpolateLngLat(start, end, 0.5)
-  const specs = [
-    { name: '中心大厦', offset: [0, 0], width: 0.00045, height: 280 },
-    { name: '滨江塔', offset: [0.00055, -0.00035], width: 0.00035, height: 210 },
-    { name: '科创中心', offset: [-0.0005, 0.0004], width: 0.0004, height: 180 },
-    { name: '商业综合体', offset: [0.00035, 0.00055], width: 0.0005, height: 150 },
-    { name: '住宅群 A', offset: [-0.00065, -0.00025], width: 0.0003, height: 95 },
-    { name: '住宅群 B', offset: [0.0007, 0.00015], width: 0.00032, height: 88 },
-  ]
-
-  return specs.map((spec): BuildingFeature => {
-    const centerLng = mid[0] + spec.offset[0]
-    const centerLat = mid[1] + spec.offset[1]
-    const half = spec.width / 2
-    return {
-      type: 'Feature',
-      properties: { height: spec.height, name: spec.name },
-      geometry: {
-        type: 'Polygon',
-        coordinates: [
-          [
-            [centerLng - half, centerLat - half],
-            [centerLng + half, centerLat - half],
-            [centerLng + half, centerLat + half],
-            [centerLng - half, centerLat + half],
-            [centerLng - half, centerLat - half],
-          ],
-        ],
-      },
-    }
-  }).filter((feature) => {
-    const ring = feature.geometry.coordinates[0]
-    const lng = ring[0][0]
-    const lat = ring[0][1]
-    return (
-      lng >= bbox.minLng &&
-      lng <= bbox.maxLng &&
-      lat >= bbox.minLat &&
-      lat <= bbox.maxLat
-    )
-  })
-}
-
 export function planPaths(start: LngLat, end: LngLat): {
-  buildings: BuildingFeature[]
   paths: PlannedPath[]
 } {
-  const buildings = generateDemoBuildings(start, end)
+  const buildings: BuildingFeature[] = []
   const nodes = buildGrid(start, end)
   const startIdx = nearestNodeIndex(nodes, start)
   const endIdx = nearestNodeIndex(nodes, end)
@@ -336,7 +290,6 @@ export function planPaths(start: LngLat, end: LngLat): {
   const optimizedAltitudes = computeAltitudes(optimizedCoords, buildings, true)
 
   return {
-    buildings,
     paths: [
       {
         id: 'shortest',

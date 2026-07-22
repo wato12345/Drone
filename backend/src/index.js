@@ -4,6 +4,8 @@ import cors from 'cors'
 import express from 'express'
 import { DB_PATH, getDb } from './db/index.js'
 import { createAuthRouter } from './routes/auth.js'
+import { createGeocodeRouter } from './routes/geocode.js'
+import { createPlanRouter } from './routes/plan.js'
 
 const app = express()
 const PORT = process.env.PORT ?? 5001
@@ -25,6 +27,8 @@ app.get('/api/health', (_req, res) => {
 })
 
 app.use('/api/auth', createAuthRouter({ isProd }))
+app.use('/api/geocode', createGeocodeRouter())
+app.use('/api', createPlanRouter())
 
 app.use((_req, res) => {
   res.status(404).json({ error: '接口不存在' })

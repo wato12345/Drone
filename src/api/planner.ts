@@ -1,8 +1,17 @@
 import type { BuildingFeature, LngLat, PlannedPath } from '../types'
 
+export interface PlanOptions {
+  avoidBuildings?: boolean
+  clearanceM?: number
+}
+
 export interface PlanResponse {
-  buildings: BuildingFeature[]
   paths: PlannedPath[]
+  buildings?: BuildingFeature[]
+  buildingCount?: number
+  buildingWarning?: string | null
+  clearanceM?: number
+  avoidBuildings?: boolean
 }
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? '/api'
@@ -16,11 +25,15 @@ async function parseJson<T>(response: Response): Promise<T> {
   return data as T
 }
 
-export async function fetchPlan(start: LngLat, end: LngLat): Promise<PlanResponse> {
+export async function fetchPlan(
+  start: LngLat,
+  end: LngLat,
+  options: PlanOptions = {},
+): Promise<PlanResponse> {
   const response = await fetch(`${API_BASE}/plan`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ start, end }),
+    body: JSON.stringify({ start, end, ...options }),
   })
   return parseJson<PlanResponse>(response)
 }

@@ -3,11 +3,13 @@ import { MapView } from '../components/MapView'
 import { ControlPanel } from '../components/ControlPanel'
 import { PathDetailCard } from '../components/PathDetailCard'
 import { usePathPlanner } from '../hooks/usePathPlanner'
+import { usePlaceNames } from '../hooks/usePlaceNames'
 import { useWeather } from '../hooks/useWeather'
 import type { LngLat } from '../types'
 
 export default function PlannerPage() {
   const planner = usePathPlanner()
+  const placeNames = usePlaceNames(planner.start, planner.end)
   const weatherLocation = useMemo<LngLat>(
     () => [
       (planner.start[0] + planner.end[0]) / 2,
@@ -24,9 +26,16 @@ export default function PlannerPage() {
           pickMode={planner.pickMode}
           start={planner.start}
           end={planner.end}
+          startPlaceName={placeNames.startName}
+          endPlaceName={placeNames.endName}
+          placeNamesLoading={placeNames.isLoading}
           isPlanning={planner.isPlanning}
           isLocating={planner.isLocating}
           hasPaths={planner.paths.length > 0}
+          avoidBuildings={planner.avoidBuildings}
+          clearanceM={planner.clearanceM}
+          buildingCount={planner.buildingCount}
+          planWarning={planner.planWarning}
           error={planner.error}
           weather={weather.displayWeather}
           weatherLoading={weather.isLoading}
@@ -47,6 +56,9 @@ export default function PlannerPage() {
         <MapView
           start={planner.start}
           end={planner.end}
+          startPlaceName={placeNames.startName}
+          endPlaceName={placeNames.endName}
+          placeNamesLoading={placeNames.isLoading}
           pickMode={planner.pickMode}
           paths={planner.paths}
           buildings={planner.buildings}

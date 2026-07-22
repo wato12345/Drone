@@ -11,12 +11,21 @@ export interface PathMetrics {
   estimatedTimeMin: number
 }
 
+export type PathClearanceStatus = 'safe' | 'violation' | 'critical'
+
+export interface PathClearanceSegment {
+  status: PathClearanceStatus
+  coordinates: LngLat[]
+}
+
 export interface PlannedPath {
   id: 'shortest' | 'optimized'
   label: string
   color: string
   coordinates: LngLat[]
   altitudes: number[]
+  buildingClearances?: number[]
+  segments?: PathClearanceSegment[]
   metrics: PathMetrics
 }
 

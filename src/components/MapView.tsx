@@ -8,17 +8,32 @@ import Map, {
   type MapRef,
 } from 'react-map-gl/maplibre'
 import type { WeatherData } from '../api/weather'
-import type { BuildingFeature, LngLat, PickMode, PlannedPath } from '../types'
+import type { BuildingFeature, LngLat, PathClearanceStatus, PickMode, PlannedPath } from '../types'
 import type { WeatherCondition } from '../utils/weatherCodes'
+import { LoadingDots } from './LoadingDots'
 import { WeatherBadge } from './WeatherBadge'
 import { WeatherOverlay } from './WeatherOverlay'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
 const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty'
 
+const CLEARANCE_COLORS: Record<PathClearanceStatus, string | null> = {
+  safe: null,
+  violation: '#ef4444',
+  critical: '#eab308',
+}
+
+function segmentColor(path: PlannedPath, status: PathClearanceStatus) {
+  if (status === 'safe') return path.color
+  return CLEARANCE_COLORS[status] ?? path.color
+}
+
 interface MapViewProps {
   start: LngLat
   end: LngLat
+  startPlaceName: string | null
+  endPlaceName: string | null
+  placeNamesLoading: boolean
   pickMode: PickMode
   paths: PlannedPath[]
   buildings: BuildingFeature[]
@@ -36,6 +51,9 @@ interface MapViewProps {
 export function MapView({
   start,
   end,
+  startPlaceName,
+  endPlaceName,
+  placeNamesLoading,
   pickMode,
   paths,
   buildings,
@@ -59,22 +77,41 @@ export function MapView({
     [buildings],
   )
 
-  const pathSources = useMemo(
-    () =>
-      paths.map((path) => ({
-        id: path.id,
-        color: path.color,
-        data: {
-          type: 'Feature' as const,
-          properties: { color: path.color },
-          geometry: {
-            type: 'LineString' as const,
-            coordinates: path.coordinates,
+  const pathSources = useMemo(() => {
+    const sources: Array<{
+      id: string
+      color: string
+      data: {
+        type: 'Feature'
+        properties: { color: string }
+        geometry: { type: 'LineString'; coordinates: LngLat[] }
+      }
+    }> = []
+
+    paths.forEach((path) => {
+      const segments = path.segments?.length
+        ? path.segments
+        : [{ status: 'safe' as const, coordinates: path.coordinates }]
+
+      segments.forEach((segment, index) => {
+        if (segment.coordinates.length < 2) return
+        sources.push({
+          id: `${path.id}-${segment.status}-${index}`,
+          color: segmentColor(path, segment.status),
+          data: {
+            type: 'Feature',
+            properties: { color: segmentColor(path, segment.status) },
+            geometry: {
+              type: 'LineString',
+              coordinates: segment.coordinates,
+            },
           },
-        },
-      })),
-    [paths],
-  )
+        })
+      })
+    })
+
+    return sources
+  }, [paths])
 
   const fitBounds = useCallback(() => {
     const map = mapRef.current?.getMap()
@@ -131,15 +168,32 @@ export function MapView({
         <NavigationControl position="top-right" visualizePitch />
 
         {buildings.length > 0 && (
-          <Source id="demo-buildings" type="geojson" data={buildingCollection}>
+          <Source id="avoidance-buildings" type="geojson" data={buildingCollection}>
             <Layer
-              id="building-fill"
+              id="avoidance-building-fill"
+              type="fill"
+              paint={{
+                'fill-color': '#f97316',
+                'fill-opacity': 0.18,
+              }}
+            />
+            <Layer
+              id="avoidance-building-outline"
+              type="line"
+              paint={{
+                'line-color': '#fb923c',
+                'line-width': 1.5,
+                'line-opacity': 0.75,
+              }}
+            />
+            <Layer
+              id="avoidance-building-3d"
               type="fill-extrusion"
               paint={{
                 'fill-extrusion-color': '#64748b',
                 'fill-extrusion-height': ['get', 'height'],
                 'fill-extrusion-base': 0,
-                'fill-extrusion-opacity': 0.82,
+                'fill-extrusion-opacity': 0.72,
               }}
             />
           </Source>
@@ -164,10 +218,28 @@ export function MapView({
         ))}
 
         <Marker longitude={start[0]} latitude={start[1]} anchor="bottom">
-          <div className="marker start-marker">起</div>
+          <div className="map-marker map-marker-start">
+            {placeNamesLoading && !startPlaceName ? (
+              <LoadingDots label="解析中" className="map-marker-label loading" />
+            ) : startPlaceName ? (
+              <span className="map-marker-label" title={startPlaceName}>
+                {startPlaceName}
+              </span>
+            ) : null}
+            <div className="marker start-marker">起</div>
+          </div>
         </Marker>
         <Marker longitude={end[0]} latitude={end[1]} anchor="bottom">
-          <div className="marker end-marker">终</div>
+          <div className="map-marker map-marker-end">
+            {placeNamesLoading && !endPlaceName ? (
+              <LoadingDots label="解析中" className="map-marker-label loading" />
+            ) : endPlaceName ? (
+              <span className="map-marker-label" title={endPlaceName}>
+                {endPlaceName}
+              </span>
+            ) : null}
+            <div className="marker end-marker">终</div>
+          </div>
         </Marker>
       </Map>
 
@@ -193,6 +265,12 @@ export function MapView({
       <div className="map-overlay">
         <div className="overlay-item shortest">最短路径</div>
         <div className="overlay-item optimized">智能优化路径</div>
+        {paths.some((path) => path.segments?.some((segment) => segment.status !== 'safe')) && (
+          <>
+            <div className="overlay-item clearance-violation">未满足净空</div>
+            <div className="overlay-item clearance-critical">满足净空 · 余量 &lt; 5m</div>
+          </>
+        )}
       </div>
     </div>
   )

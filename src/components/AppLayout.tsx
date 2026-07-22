@@ -10,7 +10,9 @@ export function AppLayout() {
     <div className="app">
       <Header onLoginClick={() => setShowAuthModal(true)} />
       <AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} />
-      <Outlet />
+      <div className="app-content">
+        <Outlet />
+      </div>
     </div>
   )
 }

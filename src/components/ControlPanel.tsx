@@ -1,3 +1,6 @@
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { LoadingDots } from './LoadingDots'
 import type { WeatherData } from '../api/weather'
 import type { LngLat, PickMode } from '../types'
 
@@ -5,9 +8,16 @@ interface ControlPanelProps {
   pickMode: PickMode
   start: LngLat
   end: LngLat
+  startPlaceName: string | null
+  endPlaceName: string | null
+  placeNamesLoading: boolean
   isPlanning: boolean
   isLocating: boolean
   hasPaths: boolean
+  avoidBuildings: boolean
+  clearanceM: number
+  buildingCount: number
+  planWarning: string | null
   error: string | null
   weather: WeatherData | null
   weatherLoading: boolean
@@ -27,9 +37,16 @@ export function ControlPanel({
   pickMode,
   start,
   end,
+  startPlaceName,
+  endPlaceName,
+  placeNamesLoading,
   isPlanning,
   isLocating,
   hasPaths,
+  avoidBuildings,
+  clearanceM,
+  buildingCount,
+  planWarning,
   error,
   weather,
   weatherLoading,
@@ -40,6 +57,14 @@ export function ControlPanel({
   onResetDemo,
   onLocateMe,
 }: ControlPanelProps) {
+  const [planAnimationKey, setPlanAnimationKey] = useState(0)
+
+  useEffect(() => {
+    if (isPlanning) {
+      setPlanAnimationKey((key) => key + 1)
+    }
+  }, [isPlanning])
+
   return (
     <section className="control-panel">
       <h2>路径规划控制台</h2>
@@ -52,6 +77,13 @@ export function ControlPanel({
           <span className="dot start-dot" />
           <div>
             <strong>起点</strong>
+            {placeNamesLoading && !startPlaceName ? (
+              <LoadingDots label="正在解析地名" className="coord-place coord-place-loading" />
+            ) : startPlaceName ? (
+              <span className="coord-place" title={startPlaceName}>
+                {startPlaceName}
+              </span>
+            ) : null}
             <span>{formatCoord(start)}</span>
           </div>
         </div>
@@ -59,10 +91,29 @@ export function ControlPanel({
           <span className="dot end-dot" />
           <div>
             <strong>终点</strong>
+            {placeNamesLoading && !endPlaceName ? (
+              <LoadingDots label="正在解析地名" className="coord-place coord-place-loading" />
+            ) : endPlaceName ? (
+              <span className="coord-place" title={endPlaceName}>
+                {endPlaceName}
+              </span>
+            ) : null}
             <span>{formatCoord(end)}</span>
           </div>
         </div>
       </div>
+
+      <Link to="/building-avoidance" className="building-avoidance-link">
+        <div>
+          <strong>建筑规避</strong>
+          <span>
+            {avoidBuildings
+              ? `已启用 · 净空 ${clearanceM} m${hasPaths ? ` · 识别 ${buildingCount} 栋` : ''}`
+              : '已关闭 · 点击配置'}
+          </span>
+        </div>
+        <span className="building-avoidance-link-arrow">›</span>
+      </Link>
 
       <button
         type="button"
@@ -98,14 +149,35 @@ export function ControlPanel({
 
       <button
         type="button"
-        className="btn btn-primary"
+        className={`btn btn-primary btn-plan${isPlanning ? ' planning' : ''}`}
         onClick={onPlan}
         disabled={isPlanning}
+        aria-busy={isPlanning}
       >
-        {isPlanning ? '规划中…' : '开始路径规划'}
+        <span className="btn-plan-label">{isPlanning ? '规划中…' : '开始路径规划'}</span>
+        <span className="btn-plan-runway" aria-hidden={!isPlanning}>
+          <span className="btn-plan-track-line" />
+          <span className="btn-plan-fill" />
+          <span key={planAnimationKey} className="btn-plan-drone">
+            <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="16" cy="16" r="3.5" fill="currentColor" />
+              <circle cx="8" cy="8" r="2.5" fill="currentColor" opacity="0.85" />
+              <circle cx="24" cy="8" r="2.5" fill="currentColor" opacity="0.85" />
+              <circle cx="8" cy="24" r="2.5" fill="currentColor" opacity="0.85" />
+              <circle cx="24" cy="24" r="2.5" fill="currentColor" opacity="0.85" />
+              <path
+                d="M10.5 10.5L13.5 13.5M21.5 10.5L18.5 13.5M10.5 21.5L13.5 18.5M21.5 21.5L18.5 18.5"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+            </svg>
+          </span>
+        </span>
       </button>
 
       {error && <p className="panel-error">{error}</p>}
+      {!error && planWarning && <p className="panel-warning">{planWarning}</p>}
 
       <div className="weather-panel">
         <h3>实时天气</h3>
