@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import mysql from 'mysql2/promise'
 
 const DEFAULTS = {
@@ -90,7 +91,7 @@ function toMySqlDateTime(value) {
 }
 
 export async function createUser({ id, username, email, passwordHash, createdAt }) {
-  const userId = id ?? crypto.randomUUID()
+  const userId = id ?? randomUUID()
   try {
     await getDb().query(
       `
