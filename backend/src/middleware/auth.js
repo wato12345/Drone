@@ -14,7 +14,7 @@ export function getTokenFromRequest(req) {
   return null
 }
 
-export function authMiddleware(req, res, next) {
+export async function authMiddleware(req, res, next) {
   const token = getTokenFromRequest(req)
   if (!token) {
     return res.status(401).json({ error: '未登录' })
@@ -22,7 +22,7 @@ export function authMiddleware(req, res, next) {
 
   try {
     const payload = verifyToken(token)
-    const user = findUserById(payload.sub)
+    const user = await findUserById(payload.sub)
     if (!user) {
       return res.status(401).json({ error: '用户不存在' })
     }

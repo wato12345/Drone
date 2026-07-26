@@ -13,14 +13,19 @@ import { authMiddleware, COOKIE_NAME } from '../middleware/auth.js'
 export function createAuthRouter({ isProd }) {
   const router = Router()
 
-  function setAuthCookie(res, token) {
-    res.cookie(COOKIE_NAME, token, {
+  function cookieOptions() {
+    return {
       httpOnly: true,
       secure: isProd,
-      sameSite: 'lax',
+      // Cross-site (GitHub Pages → Railway) requires SameSite=None + Secure
+      sameSite: isProd ? 'none' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000,
       path: '/',
-    })
+    }
+  }
+
+  function setAuthCookie(res, token) {
+    res.cookie(COOKIE_NAME, token, cookieOptions())
   }
 
   router.post('/register', async (req, res) => {
@@ -39,7 +44,7 @@ export function createAuthRouter({ isProd }) {
       if (emailError) return res.status(400).json({ error: emailError })
 
       const passwordHash = await hashPassword(password)
-      const user = createUser({ username, email, passwordHash })
+      const user = await createUser({ username, email, passwordHash })
       const token = signToken(user)
       setAuthCookie(res, token)
 
@@ -65,7 +70,7 @@ export function createAuthRouter({ isProd }) {
         return res.status(400).json({ error: '请输入用户名和密码' })
       }
 
-      const user = findUserByUsername(username)
+      const user = await findUserByUsername(username)
       if (!user) {
         return res.status(401).json({ error: '用户名或密码错误' })
       }
@@ -85,7 +90,7 @@ export function createAuthRouter({ isProd }) {
   })
 
   router.post('/logout', (_req, res) => {
-    res.clearCookie(COOKIE_NAME, { path: '/' })
+    res.clearCookie(COOKIE_NAME, cookieOptions())
     res.json({ ok: true })
   })
 
