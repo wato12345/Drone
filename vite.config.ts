@@ -1,7 +1,9 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
+  // GitHub Pages project site: https://wato12345.github.io/Drone/
+  base: command === 'build' ? '/Drone/' : '/',
   plugins: [react()],
   server: {
     proxy: {
@@ -11,4 +13,4 @@ export default defineConfig({
       },
     },
   },
-})
+}))
