@@ -10,7 +10,6 @@ const ALT_MIN_M = 40
 const ALT_STEP_M = 18
 const ALT_LAYERS = 10
 const BASE_CRUISE_M = 50
-const GROUND_ALT_M = 0
 const MAX_DESCENT_PER_STEP_M = 25
 
 export const DEFAULT_START = [121.4998, 31.2397]
@@ -266,15 +265,6 @@ function envelopeAltitudesWithProfiles(coords, profiles, seedAlts = []) {
   return alts.map((alt) => Math.round(alt))
 }
 
-/** Pin takeoff and landing altitudes to ground level. */
-function applyGroundTerminals(altitudes) {
-  if (!altitudes.length) return altitudes
-  const alts = altitudes.map((alt) => Math.round(alt))
-  alts[0] = GROUND_ALT_M
-  alts[alts.length - 1] = GROUND_ALT_M
-  return alts
-}
-
 function simplify3dPath(states, nodes, profiles) {
   const raw = statesToPath(states, nodes)
   if (raw.length <= 2) {
@@ -364,10 +354,9 @@ function buildColoredSegmentsFromStatuses(coordinates, statuses) {
   return segments.filter((segment) => segment.coordinates.length >= 2)
 }
 
-function statusFromProfile(profile, altM, clearanceM, criticalM) {
+function statusFromProfile(profile, altM, clearanceM, _criticalM) {
   if (profile.requiredAltM > BASE_CRUISE_M && altM >= profile.requiredAltM) return 'safe'
   if (profile.minDistM < clearanceM) return 'violation'
-  if (profile.minDistM < clearanceM + criticalM) return 'critical'
   return 'safe'
 }
 
@@ -553,9 +542,20 @@ export async function planPaths(start, end, options = {}) {
   optimizedPlan.coords[0] = start
   optimizedPlan.coords[optimizedPlan.coords.length - 1] = end
 
-  // Takeoff/landing at ground level (0 m), with gradual climb and descent.
-  shortestPlan.altitudes = applyGroundTerminals(shortestPlan.altitudes)
-  optimizedPlan.altitudes = applyGroundTerminals(optimizedPlan.altitudes)
+  if (effectiveAvoidance) {
+    const startProfile = buildingIndex.evaluatePoint(start[0], start[1], clearanceM, CRITICAL_CLEARANCE_M)
+    const endProfile = buildingIndex.evaluatePoint(end[0], end[1], clearanceM, CRITICAL_CLEARANCE_M)
+    shortestPlan.altitudes[0] = Math.max(shortestPlan.altitudes[0], Math.round(startProfile.requiredAltM))
+    shortestPlan.altitudes[shortestPlan.altitudes.length - 1] = Math.max(
+      shortestPlan.altitudes[shortestPlan.altitudes.length - 1],
+      Math.round(endProfile.requiredAltM),
+    )
+    optimizedPlan.altitudes[0] = Math.max(optimizedPlan.altitudes[0], Math.round(startProfile.requiredAltM))
+    optimizedPlan.altitudes[optimizedPlan.altitudes.length - 1] = Math.max(
+      optimizedPlan.altitudes[optimizedPlan.altitudes.length - 1],
+      Math.round(endProfile.requiredAltM),
+    )
+  }
 
   return {
     buildings: effectiveAvoidance ? buildings : [],

@@ -273,11 +273,8 @@ export function MapView({
         <div className="overlay-item shortest">最短路径（A*）</div>
         <div className="overlay-item optimized">智能优化路径（A*）</div>
         {show3dFlight && <div className="overlay-item flight-3d">立体航线 · 拖动旋转看高度</div>}
-        {paths.some((path) => path.segments?.some((segment) => segment.status !== 'safe')) && (
-          <>
-            <div className="overlay-item clearance-violation">未满足净空</div>
-            <div className="overlay-item clearance-critical">满足净空 · 余量 &lt; 5m</div>
-          </>
+        {paths.some((path) => path.segments?.some((segment) => segment.status === 'violation')) && (
+          <div className="overlay-item clearance-violation">未满足净空</div>
         )}
       </div>
     </div>

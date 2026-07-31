@@ -153,7 +153,6 @@ export class BuildingIndex {
     }
 
     if (profile.minDistM < clearanceM) return 'violation'
-    if (profile.minDistM < clearanceM + criticalM) return 'critical'
     return 'safe'
   }
 
@@ -181,7 +180,6 @@ export class BuildingIndex {
       const altM = altitudes[index] ?? BASE_CRUISE_M
       if (profile.requiredAltM > BASE_CRUISE_M && altM >= profile.requiredAltM) return 'safe'
       if (profile.minDistM < clearanceM) return 'violation'
-      if (profile.minDistM < clearanceM + criticalM) return 'critical'
       return 'safe'
     })
   }

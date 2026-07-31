@@ -69,7 +69,6 @@ function segmentStatusAtIndex(path: PlannedPath, index: number): PathClearanceSt
 
 function statusColor(path: PlannedPath, status: PathClearanceStatus): string {
   if (status === 'violation') return '#ef4444'
-  if (status === 'critical') return '#eab308'
   return path.color
 }
 
