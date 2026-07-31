@@ -511,37 +511,32 @@ export async function planPaths(start, end, options = {}) {
     ? buildingIndex.buildNodeProfiles(nodes, clearanceM, altMToLayer)
     : emptyProfiles(nodes)
 
-  const shortestPlan = effectiveAvoidance
-    ? planVerticalAwarePath(nodes, profiles, startIdx, endIdx, {
-        distance: 1,
-        building: 0.3,
-        climb: 0.8,
-      }, gridSize)
-    : planHorizontalPath(
-        nodes,
-        profiles,
-        startIdx,
-        endIdx,
-        { distance: 1, building: 0.05, noise: 0, wind: 0 },
-        gridSize,
-        false,
-      )
+  // Always search in 3D with layered A* so altitude is planned, not only drawn.
+  const shortestPlan = planVerticalAwarePath(
+    nodes,
+    profiles,
+    startIdx,
+    endIdx,
+    {
+      distance: 1,
+      building: effectiveAvoidance ? 0.3 : 0.05,
+      climb: 0.75,
+    },
+    gridSize,
+  )
 
-  const optimizedPlan = effectiveAvoidance
-    ? planVerticalAwarePath(nodes, profiles, startIdx, endIdx, {
-        distance: 0.55,
-        building: 0.25,
-        climb: 1.2,
-      }, gridSize)
-    : planHorizontalPath(
-        nodes,
-        profiles,
-        startIdx,
-        endIdx,
-        { distance: 0.45, building: 1.2, noise: 0.8, wind: 0.6 },
-        gridSize,
-        true,
-      )
+  const optimizedPlan = planVerticalAwarePath(
+    nodes,
+    profiles,
+    startIdx,
+    endIdx,
+    {
+      distance: 0.55,
+      building: effectiveAvoidance ? 0.25 : 0.15,
+      climb: 1.15,
+    },
+    gridSize,
+  )
 
   shortestPlan.coords[0] = start
   shortestPlan.coords[shortestPlan.coords.length - 1] = end
@@ -572,25 +567,25 @@ export async function planPaths(start, end, options = {}) {
     paths: [
       buildPathResult(
         'shortest',
-        effectiveAvoidance ? '最短路径（3D）' : '最短路径',
+        '最短路径（3D A*）',
         '#38bdf8',
         shortestPlan.coords,
         shortestPlan.altitudes,
         buildingIndex,
         false,
         clearanceM,
-        shortestPlan.is3D,
+        true,
       ),
       buildPathResult(
         'optimized',
-        effectiveAvoidance ? '智能优化路径（3D）' : '智能优化路径',
+        '智能优化路径（3D A*）',
         '#34d399',
         optimizedPlan.coords,
         optimizedPlan.altitudes,
         buildingIndex,
         true,
         clearanceM,
-        optimizedPlan.is3D,
+        true,
       ),
     ],
   }

@@ -8,36 +8,15 @@ import Map, {
   type MapRef,
 } from 'react-map-gl/maplibre'
 import type { WeatherData } from '../api/weather'
-import type { BuildingFeature, LngLat, PathClearanceStatus, PickMode, PlannedPath } from '../types'
+import type { BuildingFeature, LngLat, PickMode, PlannedPath } from '../types'
 import type { WeatherCondition } from '../utils/weatherCodes'
+import { buildFlight3dCollections, pathHas3d } from '../utils/flight3d'
 import { LoadingDots } from './LoadingDots'
 import { WeatherBadge } from './WeatherBadge'
 import { WeatherOverlay } from './WeatherOverlay'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
 const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty'
-const BASE_CRUISE_M = 50
-
-const CLEARANCE_COLORS: Record<PathClearanceStatus, string | null> = {
-  safe: null,
-  violation: '#ef4444',
-  critical: '#eab308',
-}
-
-function coordToPillarPolygon(lng: number, lat: number, size = 0.00007): LngLat[] {
-  return [
-    [lng - size, lat - size],
-    [lng + size, lat - size],
-    [lng + size, lat + size],
-    [lng - size, lat + size],
-    [lng - size, lat - size],
-  ]
-}
-
-function segmentColor(path: PlannedPath, status: PathClearanceStatus) {
-  if (status === 'safe') return path.color
-  return CLEARANCE_COLORS[status] ?? path.color
-}
 
 interface MapViewProps {
   start: LngLat
@@ -88,68 +67,8 @@ export function MapView({
     [buildings],
   )
 
-  const pathSources = useMemo(() => {
-    const sources: Array<{
-      id: string
-      color: string
-      data: {
-        type: 'Feature'
-        properties: { color: string }
-        geometry: { type: 'LineString'; coordinates: LngLat[] }
-      }
-    }> = []
-
-    paths.forEach((path) => {
-      const segments = path.segments?.length
-        ? path.segments
-        : [{ status: 'safe' as const, coordinates: path.coordinates }]
-
-      segments.forEach((segment, index) => {
-        if (segment.coordinates.length < 2) return
-        sources.push({
-          id: `${path.id}-${segment.status}-${index}`,
-          color: segmentColor(path, segment.status),
-          data: {
-            type: 'Feature',
-            properties: { color: segmentColor(path, segment.status) },
-            geometry: {
-              type: 'LineString',
-              coordinates: segment.coordinates,
-            },
-          },
-        })
-      })
-    })
-
-    return sources
-  }, [paths])
-
-  const flightPillars = useMemo(() => {
-    const features: Array<{
-      type: 'Feature'
-      properties: { altitude: number; color: string }
-      geometry: { type: 'Polygon'; coordinates: LngLat[][] }
-    }> = []
-
-    paths.forEach((path) => {
-      if (!path.is3D) return
-      path.coordinates.forEach((coord, index) => {
-        if (index % 2 !== 0 && index !== path.coordinates.length - 1) return
-        const altitude = path.altitudes[index]
-        if (altitude <= BASE_CRUISE_M + 10) return
-        features.push({
-          type: 'Feature',
-          properties: { altitude, color: path.color },
-          geometry: {
-            type: 'Polygon',
-            coordinates: [coordToPillarPolygon(coord[0], coord[1])],
-          },
-        })
-      })
-    })
-
-    return { type: 'FeatureCollection' as const, features }
-  }, [paths])
+  const flight3d = useMemo(() => buildFlight3dCollections(paths), [paths])
+  const show3dFlight = pathHas3d(paths)
 
   const fitBounds = useCallback(() => {
     const map = mapRef.current?.getMap()
@@ -167,7 +86,7 @@ export function MapView({
         [Math.min(...lngs) - 0.004, Math.min(...lats) - 0.004],
         [Math.max(...lngs) + 0.004, Math.max(...lats) + 0.004],
       ],
-      { padding: 80, duration: 900 },
+      { padding: 80, duration: 900, pitch: 62, bearing: -28 },
     )
   }, [start, end, paths])
 
@@ -194,14 +113,15 @@ export function MapView({
           longitude: (start[0] + end[0]) / 2,
           latitude: (start[1] + end[1]) / 2,
           zoom: 14.5,
-          pitch: 55,
-          bearing: -18,
+          pitch: 62,
+          bearing: -28,
         }}
         mapStyle={MAP_STYLE}
         onClick={handleClick}
         style={{ width: '100%', height: '100%' }}
         cursor={pickMode ? 'crosshair' : 'grab'}
         attributionControl={false}
+        maxPitch={85}
       >
         <NavigationControl position="top-right" visualizePitch />
 
@@ -237,15 +157,16 @@ export function MapView({
           </Source>
         )}
 
-        {pathSources.map((source) => (
-          <Source key={source.id} id={`path-${source.id}`} type="geojson" data={source.data}>
+        {flight3d.ground.features.length > 0 && (
+          <Source id="flight-ground-tracks" type="geojson" data={flight3d.ground}>
             <Layer
-              id={`path-line-${source.id}`}
+              id="flight-ground-track-line"
               type="line"
               paint={{
-                'line-color': source.color,
-                'line-width': 5,
-                'line-opacity': 0.92,
+                'line-color': ['get', 'color'],
+                'line-width': 2,
+                'line-opacity': 0.35,
+                'line-dasharray': [1.5, 1.5],
               }}
               layout={{
                 'line-cap': 'round',
@@ -253,18 +174,51 @@ export function MapView({
               }}
             />
           </Source>
-        ))}
+        )}
 
-        {flightPillars.features.length > 0 && (
-          <Source id="flight-altitude-pillars" type="geojson" data={flightPillars}>
+        {show3dFlight && flight3d.walls.features.length > 0 && (
+          <Source id="flight-altitude-walls" type="geojson" data={flight3d.walls}>
             <Layer
-              id="flight-altitude-pillars-3d"
+              id="flight-altitude-walls-3d"
               type="fill-extrusion"
               paint={{
                 'fill-extrusion-color': ['get', 'color'],
-                'fill-extrusion-height': ['get', 'altitude'],
+                'fill-extrusion-height': ['get', 'height'],
                 'fill-extrusion-base': 0,
-                'fill-extrusion-opacity': 0.55,
+                'fill-extrusion-opacity': 0.22,
+              }}
+            />
+          </Source>
+        )}
+
+        {show3dFlight && flight3d.tubes.features.length > 0 && (
+          <Source id="flight-altitude-tubes" type="geojson" data={flight3d.tubes}>
+            <Layer
+              id="flight-altitude-tubes-3d"
+              type="fill-extrusion"
+              paint={{
+                'fill-extrusion-color': ['get', 'color'],
+                'fill-extrusion-height': ['get', 'height'],
+                'fill-extrusion-base': ['get', 'base'],
+                'fill-extrusion-opacity': 0.9,
+              }}
+            />
+          </Source>
+        )}
+
+        {!show3dFlight && flight3d.ground.features.length > 0 && (
+          <Source id="flat-flight-paths" type="geojson" data={flight3d.ground}>
+            <Layer
+              id="flat-flight-path-line"
+              type="line"
+              paint={{
+                'line-color': ['get', 'color'],
+                'line-width': 5,
+                'line-opacity': 0.92,
+              }}
+              layout={{
+                'line-cap': 'round',
+                'line-join': 'round',
               }}
             />
           </Source>
@@ -316,11 +270,9 @@ export function MapView({
       />
 
       <div className="map-overlay">
-        <div className="overlay-item shortest">最短路径</div>
-        <div className="overlay-item optimized">智能优化路径</div>
-        {paths.some((path) => path.is3D) && (
-          <div className="overlay-item flight-3d">3D 爬升路径</div>
-        )}
+        <div className="overlay-item shortest">最短路径（A*）</div>
+        <div className="overlay-item optimized">智能优化路径（A*）</div>
+        {show3dFlight && <div className="overlay-item flight-3d">立体航线 · 拖动旋转看高度</div>}
         {paths.some((path) => path.segments?.some((segment) => segment.status !== 'safe')) && (
           <>
             <div className="overlay-item clearance-violation">未满足净空</div>

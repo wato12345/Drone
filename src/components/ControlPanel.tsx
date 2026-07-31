@@ -69,7 +69,7 @@ export function ControlPanel({
     <section className="control-panel">
       <h2>路径规划控制台</h2>
       <p className="panel-desc">
-        在地图上选择起点与终点，系统将基于 A* 算法生成最短路径与智能优化路径。
+        在地图上选择起点与终点，系统将基于三维 A* 算法生成最短与智能优化航线；拖动地图旋转可查看飞行高度。
       </p>
 
       <div className="coord-block">
