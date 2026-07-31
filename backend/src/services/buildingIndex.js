@@ -139,7 +139,7 @@ export class BuildingIndex {
 
   evaluatePointAtAlt(lng, lat, altM, clearanceM = this.clearanceM, criticalM = this.criticalM) {
     const profile = this.evaluatePoint(lng, lat, clearanceM, criticalM)
-    if (profile.requiredAltM > BASE_CRUISE_M && altM >= profile.requiredAltM) {
+    if (altM >= profile.requiredAltM) {
       return 0
     }
     return profile.violationCost
@@ -148,10 +148,7 @@ export class BuildingIndex {
   classifyPoint(lng, lat, altM, clearanceM = this.clearanceM, criticalM = this.criticalM) {
     const profile = this.evaluatePoint(lng, lat, clearanceM, criticalM)
 
-    if (profile.requiredAltM > BASE_CRUISE_M && altM >= profile.requiredAltM) {
-      return 'safe'
-    }
-
+    if (altM >= profile.requiredAltM) return 'safe'
     if (profile.minDistM < clearanceM) return 'violation'
     return 'safe'
   }
@@ -178,7 +175,7 @@ export class BuildingIndex {
     return coordinates.map(([lng, lat], index) => {
       const profile = this.evaluatePoint(lng, lat, clearanceM, criticalM)
       const altM = altitudes[index] ?? BASE_CRUISE_M
-      if (profile.requiredAltM > BASE_CRUISE_M && altM >= profile.requiredAltM) return 'safe'
+      if (altM >= profile.requiredAltM) return 'safe'
       if (profile.minDistM < clearanceM) return 'violation'
       return 'safe'
     })

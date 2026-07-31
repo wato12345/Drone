@@ -3,14 +3,22 @@ import { BuildingIndex } from './buildingIndex.js'
 import { bboxFromPoints, haversineKm, pathLengthKm } from '../utils/geo.js'
 import { MinHeap } from '../utils/minHeap.js'
 
-const GRID_SIZE_DEFAULT = 24
-const GRID_SIZE_AVOID = 28
+// Coarser grid → fewer A* states; wider bbox pad → each cell covers more ground.
+const GRID_SIZE_DEFAULT = 16
+const GRID_SIZE_AVOID = 18
+const GRID_BBOX_PAD = 0.006
 
 const ALT_MIN_M = 40
 const ALT_STEP_M = 18
 const ALT_LAYERS = 10
 const BASE_CRUISE_M = 50
 const MAX_DESCENT_PER_STEP_M = 25
+/** Soft cost terms below this are skipped in the hot loop (hard minLayer still applies). */
+const WEIGHT_EPS = 0.2
+/** Allow clearance violations only if a safe detour exceeds this × straight-line distance. */
+const MAX_SAFE_DETOUR_RATIO = 2
+/** Heavy penalty so relaxed search still prefers staying clear when possible. */
+const VIOLATION_MOVE_PENALTY = 80
 
 export const DEFAULT_START = [121.4998, 31.2397]
 export const DEFAULT_END = [121.5085, 31.2452]
@@ -18,7 +26,7 @@ export const DEFAULT_CLEARANCE_M = 15
 export const CRITICAL_CLEARANCE_M = 5
 
 function buildGrid(start, end, rows, cols) {
-  const bbox = bboxFromPoints([start, end], 0.003)
+  const bbox = bboxFromPoints([start, end], GRID_BBOX_PAD)
   const nodes = []
 
   for (let row = 0; row < rows; row++) {
@@ -85,15 +93,25 @@ function buildingCostAtAlt(profile, altM) {
   return profile.violationCost
 }
 
-function astar3d(nodes, startIdx, endIdx, profiles, weights, gridSize) {
+function astar3d(nodes, startIdx, endIdx, profiles, weights, gridSize, options = {}) {
+  const allowClearanceViolation = options.allowClearanceViolation === true
   const cols = gridSize
   const rows = gridSize
   const startLayer = profiles[startIdx].minLayer
-  const endMinLayer = profiles[endIdx].minLayer
+  const endMinLayer = allowClearanceViolation ? 0 : profiles[endIdx].minLayer
+  const endNode = nodes[endIdx]
   const startState = encodeState(startIdx, startLayer)
 
+  const distW = weights.distance
+  // Drop soft building / climb multipliers when their weights are negligible.
+  const buildingSoft = weights.building >= WEIGHT_EPS ? weights.building * 0.15 : 0
+  const climbUp =
+    weights.climb >= WEIGHT_EPS ? weights.climb * ALT_STEP_M * 0.08 : ALT_STEP_M * 0.08
+  const climbDown =
+    weights.climb >= WEIGHT_EPS ? weights.climb * ALT_STEP_M * 0.03 : ALT_STEP_M * 0.03
+
   const openHeap = new MinHeap()
-  openHeap.push(startState, heuristic3d(nodes[startIdx], startLayer, nodes[endIdx], endMinLayer))
+  openHeap.push(startState, heuristic3d(nodes[startIdx], startLayer, endNode, endMinLayer))
   const openSet = new Set([startState])
   const cameFrom = new Map()
   const gScore = new Map([[startState, 0]])
@@ -113,7 +131,7 @@ function astar3d(nodes, startIdx, endIdx, profiles, weights, gridSize) {
 
     openSet.delete(current)
     const node = nodes[nodeIdx]
-    const minLayer = profiles[nodeIdx].minLayer
+    const minLayer = allowClearanceViolation ? 0 : profiles[nodeIdx].minLayer
     const currentG = gScore.get(current) ?? Infinity
 
     const tryMove = (nextState, moveCost) => {
@@ -122,17 +140,17 @@ function astar3d(nodes, startIdx, endIdx, profiles, weights, gridSize) {
         cameFrom.set(nextState, current)
         gScore.set(nextState, tentativeG)
         const { nodeIdx: nIdx, layer: nLayer } = decodeState(nextState)
-        const f = tentativeG + heuristic3d(nodes[nIdx], nLayer, nodes[endIdx], endMinLayer)
+        const f = tentativeG + heuristic3d(nodes[nIdx], nLayer, endNode, endMinLayer)
         openHeap.push(nextState, f)
         openSet.add(nextState)
       }
     }
 
     if (layer + 1 < ALT_LAYERS) {
-      tryMove(encodeState(nodeIdx, layer + 1), weights.climb * ALT_STEP_M * 0.08)
+      tryMove(encodeState(nodeIdx, layer + 1), climbUp)
     }
     if (layer - 1 >= minLayer) {
-      tryMove(encodeState(nodeIdx, layer - 1), weights.climb * ALT_STEP_M * 0.03)
+      tryMove(encodeState(nodeIdx, layer - 1), climbDown)
     }
 
     const { row, col } = node
@@ -151,17 +169,22 @@ function astar3d(nodes, startIdx, endIdx, profiles, weights, gridSize) {
     for (const [nRow, nCol] of neighbors) {
       if (nRow < 0 || nCol < 0 || nRow >= rows || nCol >= cols) continue
       const neighborIdx = nodeIndex(nRow, nCol, cols)
-      if (layer < profiles[neighborIdx].minLayer) continue
+      const neighborMinLayer = profiles[neighborIdx].minLayer
+      if (!allowClearanceViolation && layer < neighborMinLayer) continue
 
-      const moveCost =
-        (nRow !== row && nCol !== col ? 1.414 : 1) * weights.distance +
-        weights.building * buildingCostAtAlt(profiles[neighborIdx], altM) * 0.15
+      let moveCost = (nRow !== row && nCol !== col ? 1.414 : 1) * distW
+      if (buildingSoft > 0) {
+        moveCost += buildingSoft * buildingCostAtAlt(profiles[neighborIdx], altM)
+      }
+      if (allowClearanceViolation && layer < neighborMinLayer) {
+        moveCost += VIOLATION_MOVE_PENALTY
+      }
 
       tryMove(encodeState(neighborIdx, layer), moveCost)
     }
   }
 
-  return [startState]
+  return null
 }
 
 function noiseIndex(lng, lat) {
@@ -177,12 +200,12 @@ function windResistance(lng, lat) {
 }
 
 function nodeCost(profile, node, weights) {
-  return (
-    weights.distance * 1 +
-    weights.building * profile.violationCost +
-    weights.noise * noiseIndex(node.lng, node.lat) * 3 +
-    weights.wind * windResistance(node.lng, node.lat) * 2.5
-  )
+  let cost = weights.distance
+  if (weights.building >= WEIGHT_EPS) cost += weights.building * profile.violationCost
+  // noise / wind weights are low and skipped for search speed
+  if (weights.noise >= WEIGHT_EPS) cost += weights.noise * noiseIndex(node.lng, node.lat) * 3
+  if (weights.wind >= WEIGHT_EPS) cost += weights.wind * windResistance(node.lng, node.lat) * 2.5
+  return cost
 }
 
 function astar(nodes, startIdx, endIdx, profiles, weights, gridSize) {
@@ -355,7 +378,8 @@ function buildColoredSegmentsFromStatuses(coordinates, statuses) {
 }
 
 function statusFromProfile(profile, altM, clearanceM, _criticalM) {
-  if (profile.requiredAltM > BASE_CRUISE_M && altM >= profile.requiredAltM) return 'safe'
+  // Flying at/above the clearance ceiling clears the horizontal deficit.
+  if (altM >= profile.requiredAltM) return 'safe'
   if (profile.minDistM < clearanceM) return 'violation'
   return 'safe'
 }
@@ -464,9 +488,109 @@ function planHorizontalPath(nodes, profiles, startIdx, endIdx, weights, gridSize
   return { coords, altitudes, is3D: false }
 }
 
-function planVerticalAwarePath(nodes, profiles, startIdx, endIdx, weights, gridSize) {
-  const states = astar3d(nodes, startIdx, endIdx, profiles, weights, gridSize)
+function planVerticalAwarePath(nodes, profiles, startIdx, endIdx, weights, gridSize, options = {}) {
+  const states = astar3d(nodes, startIdx, endIdx, profiles, weights, gridSize, options)
+  if (!states) return null
   return { ...simplify3dPath(states, nodes, profiles), is3D: true }
+}
+
+/** Raise altitude wherever the path is inside clearance so segments stay non-red. */
+function enforceClearanceAltitudes(coords, altitudes, buildingIndex, clearanceM) {
+  if (!buildingIndex) return altitudes.map((alt) => Math.round(alt))
+  return coords.map(([lng, lat], index) => {
+    const profile = buildingIndex.evaluatePoint(lng, lat, clearanceM, CRITICAL_CLEARANCE_M)
+    const current = altitudes[index] ?? BASE_CRUISE_M
+    if (profile.minDistM < clearanceM) {
+      return Math.round(Math.max(current, profile.requiredAltM))
+    }
+    return Math.round(current)
+  })
+}
+
+function isCompletePlan(plan, end) {
+  if (!plan?.coords || plan.coords.length < 2) return false
+  return haversineKm(plan.coords[plan.coords.length - 1], end) < 0.08
+}
+
+/**
+ * Prefer a clearance-safe path. Only allow violation (red) routes when a safe
+ * detour is longer than MAX_SAFE_DETOUR_RATIO × straight-line distance, or when
+ * no safe path exists.
+ */
+function planWithClearancePolicy(
+  nodes,
+  profiles,
+  startIdx,
+  endIdx,
+  weights,
+  gridSize,
+  start,
+  end,
+  buildingIndex,
+  clearanceM,
+) {
+  const straightKm = Math.max(haversineKm(start, end), 1e-6)
+
+  const strictPlan = planVerticalAwarePath(
+    nodes,
+    profiles,
+    startIdx,
+    endIdx,
+    weights,
+    gridSize,
+    { allowClearanceViolation: false },
+  )
+
+  if (strictPlan && isCompletePlan(strictPlan, end)) {
+    const detourKm = pathLengthKm(strictPlan.coords)
+    if (detourKm <= MAX_SAFE_DETOUR_RATIO * straightKm) {
+      return {
+        ...strictPlan,
+        altitudes: enforceClearanceAltitudes(
+          strictPlan.coords,
+          strictPlan.altitudes,
+          buildingIndex,
+          clearanceM,
+        ),
+        allowsViolation: false,
+      }
+    }
+  }
+
+  const relaxedPlan = planVerticalAwarePath(
+    nodes,
+    profiles,
+    startIdx,
+    endIdx,
+    { ...weights, building: Math.max(weights.building ?? 0, 0.35) },
+    gridSize,
+    { allowClearanceViolation: true },
+  )
+
+  if (relaxedPlan && isCompletePlan(relaxedPlan, end)) {
+    return { ...relaxedPlan, allowsViolation: true }
+  }
+
+  // Last resort: fall back to whatever strict found, or a straight cruise segment.
+  if (strictPlan && strictPlan.coords.length >= 2) {
+    return {
+      ...strictPlan,
+      altitudes: enforceClearanceAltitudes(
+        strictPlan.coords,
+        strictPlan.altitudes,
+        buildingIndex,
+        clearanceM,
+      ),
+      allowsViolation: false,
+    }
+  }
+
+  return {
+    coords: [start, end],
+    altitudes: [BASE_CRUISE_M, BASE_CRUISE_M],
+    is3D: true,
+    allowsViolation: true,
+  }
 }
 
 function emptyProfiles(nodes) {
@@ -510,32 +634,74 @@ export async function planPaths(start, end, options = {}) {
     ? buildingIndex.buildNodeProfiles(nodes, clearanceM, altMToLayer)
     : emptyProfiles(nodes)
 
-  // Always search in 3D with layered A* so altitude is planned, not only drawn.
-  const shortestPlan = planVerticalAwarePath(
-    nodes,
-    profiles,
-    startIdx,
-    endIdx,
-    {
-      distance: 1,
-      building: effectiveAvoidance ? 0.3 : 0.05,
-      climb: 0.75,
-    },
-    gridSize,
-  )
+  // Prefer clearance-safe A*; allow red/violation only if safe detour > 2× straight line.
+  const shortestPlan = effectiveAvoidance
+    ? planWithClearancePolicy(
+        nodes,
+        profiles,
+        startIdx,
+        endIdx,
+        {
+          distance: 1,
+          building: 0.3,
+          climb: 0.75,
+        },
+        gridSize,
+        start,
+        end,
+        buildingIndex,
+        clearanceM,
+      )
+    : planVerticalAwarePath(
+        nodes,
+        profiles,
+        startIdx,
+        endIdx,
+        {
+          distance: 1,
+          building: 0,
+          climb: 0.75,
+        },
+        gridSize,
+      ) ?? {
+        coords: [start, end],
+        altitudes: [BASE_CRUISE_M, BASE_CRUISE_M],
+        is3D: true,
+      }
 
-  const optimizedPlan = planVerticalAwarePath(
-    nodes,
-    profiles,
-    startIdx,
-    endIdx,
-    {
-      distance: 0.55,
-      building: effectiveAvoidance ? 0.25 : 0.15,
-      climb: 1.15,
-    },
-    gridSize,
-  )
+  const optimizedPlan = effectiveAvoidance
+    ? planWithClearancePolicy(
+        nodes,
+        profiles,
+        startIdx,
+        endIdx,
+        {
+          distance: 0.55,
+          building: 0.25,
+          climb: 1.15,
+        },
+        gridSize,
+        start,
+        end,
+        buildingIndex,
+        clearanceM,
+      )
+    : planVerticalAwarePath(
+        nodes,
+        profiles,
+        startIdx,
+        endIdx,
+        {
+          distance: 0.55,
+          building: 0,
+          climb: 1.15,
+        },
+        gridSize,
+      ) ?? {
+        coords: [start, end],
+        altitudes: [BASE_CRUISE_M + 20, BASE_CRUISE_M + 20],
+        is3D: true,
+      }
 
   shortestPlan.coords[0] = start
   shortestPlan.coords[shortestPlan.coords.length - 1] = end
@@ -545,16 +711,33 @@ export async function planPaths(start, end, options = {}) {
   if (effectiveAvoidance) {
     const startProfile = buildingIndex.evaluatePoint(start[0], start[1], clearanceM, CRITICAL_CLEARANCE_M)
     const endProfile = buildingIndex.evaluatePoint(end[0], end[1], clearanceM, CRITICAL_CLEARANCE_M)
-    shortestPlan.altitudes[0] = Math.max(shortestPlan.altitudes[0], Math.round(startProfile.requiredAltM))
-    shortestPlan.altitudes[shortestPlan.altitudes.length - 1] = Math.max(
-      shortestPlan.altitudes[shortestPlan.altitudes.length - 1],
-      Math.round(endProfile.requiredAltM),
-    )
-    optimizedPlan.altitudes[0] = Math.max(optimizedPlan.altitudes[0], Math.round(startProfile.requiredAltM))
-    optimizedPlan.altitudes[optimizedPlan.altitudes.length - 1] = Math.max(
-      optimizedPlan.altitudes[optimizedPlan.altitudes.length - 1],
-      Math.round(endProfile.requiredAltM),
-    )
+    // Only force terminal climb when we are keeping a clearance-safe plan.
+    if (!shortestPlan.allowsViolation) {
+      shortestPlan.altitudes[0] = Math.max(shortestPlan.altitudes[0], Math.round(startProfile.requiredAltM))
+      shortestPlan.altitudes[shortestPlan.altitudes.length - 1] = Math.max(
+        shortestPlan.altitudes[shortestPlan.altitudes.length - 1],
+        Math.round(endProfile.requiredAltM),
+      )
+      shortestPlan.altitudes = enforceClearanceAltitudes(
+        shortestPlan.coords,
+        shortestPlan.altitudes,
+        buildingIndex,
+        clearanceM,
+      )
+    }
+    if (!optimizedPlan.allowsViolation) {
+      optimizedPlan.altitudes[0] = Math.max(optimizedPlan.altitudes[0], Math.round(startProfile.requiredAltM))
+      optimizedPlan.altitudes[optimizedPlan.altitudes.length - 1] = Math.max(
+        optimizedPlan.altitudes[optimizedPlan.altitudes.length - 1],
+        Math.round(endProfile.requiredAltM),
+      )
+      optimizedPlan.altitudes = enforceClearanceAltitudes(
+        optimizedPlan.coords,
+        optimizedPlan.altitudes,
+        buildingIndex,
+        clearanceM,
+      )
+    }
   }
 
   return {
