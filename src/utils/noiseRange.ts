@@ -1,22 +1,120 @@
 import type { LngLat } from '../types'
 
-const CIRCLE_STEPS = 48
+const CAP_STEPS = 16
 
-/** Approximate a geodesic circle as a lon/lat polygon ring. */
-export function circlePolygon(center: LngLat, radiusM: number, steps = CIRCLE_STEPS): LngLat[] {
-  const [lng, lat] = center
-  const latRad = (lat * Math.PI) / 180
-  const metersPerDegLat = 111_320
+type LocalPoint = { x: number; y: number }
+
+function toLocal(origin: LngLat, point: LngLat): LocalPoint {
+  const latRad = (origin[1] * Math.PI) / 180
   const metersPerDegLng = 111_320 * Math.max(Math.cos(latRad), 0.2)
-  const ring: LngLat[] = []
+  return {
+    x: (point[0] - origin[0]) * metersPerDegLng,
+    y: (point[1] - origin[1]) * 111_320,
+  }
+}
 
-  for (let i = 0; i <= steps; i++) {
-    const theta = (i / steps) * Math.PI * 2
-    const dEast = Math.cos(theta) * radiusM
-    const dNorth = Math.sin(theta) * radiusM
-    ring.push([lng + dEast / metersPerDegLng, lat + dNorth / metersPerDegLat])
+function toLngLat(origin: LngLat, point: LocalPoint): LngLat {
+  const latRad = (origin[1] * Math.PI) / 180
+  const metersPerDegLng = 111_320 * Math.max(Math.cos(latRad), 0.2)
+  return [origin[0] + point.x / metersPerDegLng, origin[1] + point.y / 111_320]
+}
+
+function simplifyPath(coords: LngLat[], minStepM = 12): LngLat[] {
+  if (coords.length <= 2) return coords
+  const origin = coords[0]
+  const kept: LngLat[] = [coords[0]]
+  let last = toLocal(origin, coords[0])
+
+  for (let i = 1; i < coords.length - 1; i++) {
+    const current = toLocal(origin, coords[i])
+    const dist = Math.hypot(current.x - last.x, current.y - last.y)
+    if (dist >= minStepM) {
+      kept.push(coords[i])
+      last = current
+    }
   }
 
+  kept.push(coords[coords.length - 1])
+  return kept
+}
+
+function offsetPoint(point: LocalPoint, dx: number, dy: number, radiusM: number, sign: 1 | -1): LocalPoint {
+  const len = Math.hypot(dx, dy) || 1
+  const nx = (-dy / len) * radiusM * sign
+  const ny = (dx / len) * radiusM * sign
+  return { x: point.x + nx, y: point.y + ny }
+}
+
+function semicircle(
+  center: LocalPoint,
+  fromAngle: number,
+  toAngle: number,
+  radiusM: number,
+  steps = CAP_STEPS,
+): LocalPoint[] {
+  const points: LocalPoint[] = []
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps
+    const angle = fromAngle + (toAngle - fromAngle) * t
+    points.push({
+      x: center.x + Math.cos(angle) * radiusM,
+      y: center.y + Math.sin(angle) * radiusM,
+    })
+  }
+  return points
+}
+
+/** Build one continuous stadium-like buffer around the whole path. */
+export function pathNoiseBufferPolygon(pathCoordinates: LngLat[], radiusM: number): LngLat[] | null {
+  if (radiusM <= 0 || pathCoordinates.length === 0) return null
+
+  const coords = simplifyPath(pathCoordinates)
+  const origin = coords[0]
+  const local = coords.map((point) => toLocal(origin, point))
+
+  if (local.length === 1) {
+    return semicircle(local[0], 0, Math.PI * 2, radiusM).map((point) => toLngLat(origin, point))
+  }
+
+  const left: LocalPoint[] = []
+  const right: LocalPoint[] = []
+
+  for (let i = 0; i < local.length; i++) {
+    const prev = local[Math.max(0, i - 1)]
+    const next = local[Math.min(local.length - 1, i + 1)]
+    const dx = next.x - prev.x
+    const dy = next.y - prev.y
+    left.push(offsetPoint(local[i], dx, dy, radiusM, 1))
+    right.push(offsetPoint(local[i], dx, dy, radiusM, -1))
+  }
+
+  const start = local[0]
+  const end = local[local.length - 1]
+  const startDir = {
+    x: local[1].x - start.x,
+    y: local[1].y - start.y,
+  }
+  const endDir = {
+    x: end.x - local[local.length - 2].x,
+    y: end.y - local[local.length - 2].y,
+  }
+  const startAngle = Math.atan2(startDir.y, startDir.x)
+  const endAngle = Math.atan2(endDir.y, endDir.x)
+
+  // Left side forward, round end cap, right side backward, round start cap.
+  const ringLocal = [
+    ...left,
+    ...semicircle(end, endAngle - Math.PI / 2, endAngle + Math.PI / 2, radiusM),
+    ...right.slice().reverse(),
+    ...semicircle(start, startAngle + Math.PI / 2, startAngle + (Math.PI * 3) / 2, radiusM),
+  ]
+
+  const ring = ringLocal.map((point) => toLngLat(origin, point))
+  const first = ring[0]
+  const last = ring[ring.length - 1]
+  if (first[0] !== last[0] || first[1] !== last[1]) {
+    ring.push([...first] as LngLat)
+  }
   return ring
 }
 
@@ -26,26 +124,17 @@ export function buildNoiseRangeFeatures(
   color: string,
   pathId: string,
 ) {
-  if (radiusM <= 0 || pathCoordinates.length === 0) return []
+  const ring = pathNoiseBufferPolygon(pathCoordinates, radiusM)
+  if (!ring) return []
 
-  // Sample along path so long routes don't create huge feature counts.
-  const stride = Math.max(1, Math.floor(pathCoordinates.length / 8))
-  const samples: LngLat[] = []
-  for (let i = 0; i < pathCoordinates.length; i += stride) {
-    samples.push(pathCoordinates[i])
-  }
-  const last = pathCoordinates[pathCoordinates.length - 1]
-  const prev = samples[samples.length - 1]
-  if (!prev || prev[0] !== last[0] || prev[1] !== last[1]) {
-    samples.push(last)
-  }
-
-  return samples.map((center, index) => ({
-    type: 'Feature' as const,
-    properties: { color, pathId, sample: index },
-    geometry: {
-      type: 'Polygon' as const,
-      coordinates: [circlePolygon(center, radiusM)],
+  return [
+    {
+      type: 'Feature' as const,
+      properties: { color, pathId },
+      geometry: {
+        type: 'Polygon' as const,
+        coordinates: [ring],
+      },
     },
-  }))
+  ]
 }
