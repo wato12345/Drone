@@ -1,9 +1,10 @@
 import type { LngLat, PathClearanceStatus, PlannedPath } from '../types'
 
-const RIBBON_HALF_WIDTH_M = 7
-const TUBE_THICKNESS_M = 10
+const RIBBON_HALF_WIDTH_M = 3
+const TUBE_THICKNESS_M = 5
 const GROUND_ALT_M = 0
 const MIN_VISIBLE_TUBE_M = 2
+const WALL_HALF_WIDTH_M = 1
 
 type FlightFeature = {
   type: 'Feature'
@@ -137,7 +138,7 @@ export function buildFlight3dCollections(paths: PlannedPath[]): Flight3dCollecti
           },
           geometry: {
             type: 'Polygon',
-            coordinates: [segmentFootprint(a, b, 2.2)],
+            coordinates: [segmentFootprint(a, b, WALL_HALF_WIDTH_M)],
           },
         })
       }

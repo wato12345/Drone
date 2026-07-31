@@ -164,7 +164,7 @@ export function MapView({
               type="line"
               paint={{
                 'line-color': ['get', 'color'],
-                'line-width': 2,
+                'line-width': 1.2,
                 'line-opacity': 0.35,
                 'line-dasharray': [1.5, 1.5],
               }}
@@ -213,7 +213,7 @@ export function MapView({
               type="line"
               paint={{
                 'line-color': ['get', 'color'],
-                'line-width': 5,
+                'line-width': 2.5,
                 'line-opacity': 0.92,
               }}
               layout={{
