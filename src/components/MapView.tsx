@@ -185,7 +185,7 @@ export function MapView({
                 'fill-extrusion-color': ['get', 'color'],
                 'fill-extrusion-height': ['get', 'height'],
                 'fill-extrusion-base': 0,
-                'fill-extrusion-opacity': 0.22,
+                'fill-extrusion-opacity': 0.12,
               }}
             />
           </Source>
@@ -200,7 +200,7 @@ export function MapView({
                 'fill-extrusion-color': ['get', 'color'],
                 'fill-extrusion-height': ['get', 'height'],
                 'fill-extrusion-base': ['get', 'base'],
-                'fill-extrusion-opacity': 0.9,
+                'fill-extrusion-opacity': 0.82,
               }}
             />
           </Source>

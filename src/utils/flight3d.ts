@@ -1,10 +1,10 @@
 import type { LngLat, PathClearanceStatus, PlannedPath } from '../types'
 
-const RIBBON_HALF_WIDTH_M = 3
-const TUBE_THICKNESS_M = 5
+const RIBBON_HALF_WIDTH_M = 1.1
+const TUBE_THICKNESS_M = 4
 const GROUND_ALT_M = 0
 const MIN_VISIBLE_TUBE_M = 2
-const WALL_HALF_WIDTH_M = 1
+const WALL_HALF_WIDTH_M = 0.35
 
 type FlightFeature = {
   type: 'Feature'
