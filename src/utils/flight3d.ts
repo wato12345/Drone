@@ -2,7 +2,8 @@ import type { LngLat, PathClearanceStatus, PlannedPath } from '../types'
 
 const RIBBON_HALF_WIDTH_M = 7
 const TUBE_THICKNESS_M = 10
-const MIN_FLIGHT_ALT_M = 25
+const GROUND_ALT_M = 0
+const MIN_VISIBLE_TUBE_M = 2
 
 type FlightFeature = {
   type: 'Feature'
@@ -51,7 +52,7 @@ function resolveAltitudes(path: PlannedPath): number[] {
   if (path.altitudes.length === path.coordinates.length) {
     return path.altitudes
   }
-  return path.coordinates.map((_, i) => path.altitudes[i] ?? MIN_FLIGHT_ALT_M)
+  return path.coordinates.map((_, i) => path.altitudes[i] ?? GROUND_ALT_M)
 }
 
 function segmentStatusAtIndex(path: PlannedPath, index: number): PathClearanceStatus {
@@ -101,64 +102,47 @@ export function buildFlight3dCollections(paths: PlannedPath[]): Flight3dCollecti
     for (let i = 0; i < coords.length - 1; i++) {
       const a = coords[i]
       const b = coords[i + 1]
-      const alt = Math.max(alts[i] ?? MIN_FLIGHT_ALT_M, alts[i + 1] ?? MIN_FLIGHT_ALT_M, MIN_FLIGHT_ALT_M)
+      const altA = Math.max(alts[i] ?? GROUND_ALT_M, GROUND_ALT_M)
+      const altB = Math.max(alts[i + 1] ?? GROUND_ALT_M, GROUND_ALT_M)
+      const top = Math.max(altA, altB)
+      const bottom = Math.min(altA, altB)
       const color = statusColor(path, segmentStatusAtIndex(path, i))
       const footprint = segmentFootprint(a, b)
-      const base = Math.max(alt - TUBE_THICKNESS_M, 8)
 
-      tubes.push({
-        type: 'Feature',
-        properties: {
-          color,
-          height: alt,
-          base,
-          pathId: path.id,
-        },
-        geometry: {
-          type: 'Polygon',
-          coordinates: [footprint],
-        },
-      })
+      // Skip near-flat ground segments; climb/cruise segments stay extruded.
+      if (top >= MIN_VISIBLE_TUBE_M) {
+        const height = top
+        const base = Math.max(bottom > 0 ? Math.max(bottom - 2, 0) : Math.max(height - TUBE_THICKNESS_M, 0), 0)
+        tubes.push({
+          type: 'Feature',
+          properties: {
+            color,
+            height,
+            base: Math.min(base, Math.max(height - 1, 0)),
+            pathId: path.id,
+          },
+          geometry: {
+            type: 'Polygon',
+            coordinates: [footprint],
+          },
+        })
+      }
 
-      walls.push({
-        type: 'Feature',
-        properties: {
-          color,
-          height: alt,
-          pathId: path.id,
-        },
-        geometry: {
-          type: 'Polygon',
-          coordinates: [segmentFootprint(a, b, 2.2)],
-        },
-      })
+      if (top > GROUND_ALT_M) {
+        walls.push({
+          type: 'Feature',
+          properties: {
+            color,
+            height: top,
+            pathId: path.id,
+          },
+          geometry: {
+            type: 'Polygon',
+            coordinates: [segmentFootprint(a, b, 2.2)],
+          },
+        })
+      }
     }
-
-    ;[0, coords.length - 1].forEach((index) => {
-      const [lng, lat] = coords[index]
-      const alt = Math.max(alts[index] ?? MIN_FLIGHT_ALT_M, MIN_FLIGHT_ALT_M)
-      const size = 0.00005
-      walls.push({
-        type: 'Feature',
-        properties: {
-          color: path.color,
-          height: alt,
-          pathId: path.id,
-        },
-        geometry: {
-          type: 'Polygon',
-          coordinates: [
-            [
-              [lng - size, lat - size],
-              [lng + size, lat - size],
-              [lng + size, lat + size],
-              [lng - size, lat + size],
-              [lng - size, lat - size],
-            ],
-          ],
-        },
-      })
-    })
   })
 
   return {
@@ -173,6 +157,6 @@ export function pathHas3d(paths: PlannedPath[]): boolean {
     (path) =>
       path.is3D ||
       Boolean(path.coordinates3d?.length) ||
-      path.altitudes.some((alt) => alt > MIN_FLIGHT_ALT_M),
+      path.altitudes.some((alt) => alt > GROUND_ALT_M),
   )
 }
