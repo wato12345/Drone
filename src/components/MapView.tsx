@@ -179,23 +179,13 @@ export function MapView({
               type="fill"
               paint={{
                 'fill-color': ['get', 'color'],
-                'fill-opacity': 0.12,
-              }}
-            />
-            <Layer
-              id="noise-range-outline"
-              type="line"
-              paint={{
-                'line-color': ['get', 'color'],
-                'line-width': 1,
-                'line-opacity': 0.55,
-                'line-dasharray': [2, 1.5],
+                'fill-opacity': 0.22,
               }}
             />
           </Source>
         )}
 
-        {flight3d.ground.features.length > 0 && (
+        {!showNoiseRange && flight3d.ground.features.length > 0 && (
           <Source id="flight-ground-tracks" type="geojson" data={flight3d.ground}>
             <Layer
               id="flight-ground-track-line"
@@ -214,7 +204,7 @@ export function MapView({
           </Source>
         )}
 
-        {show3dFlight && flight3d.walls.features.length > 0 && (
+        {show3dFlight && !showNoiseRange && flight3d.walls.features.length > 0 && (
           <Source id="flight-altitude-walls" type="geojson" data={flight3d.walls}>
             <Layer
               id="flight-altitude-walls-3d"
