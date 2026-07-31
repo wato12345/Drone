@@ -3,6 +3,9 @@ import type { BuildingFeature, LngLat, PlannedPath } from '../types'
 export interface PlanOptions {
   avoidBuildings?: boolean
   clearanceM?: number
+  cruiseAltitudeM?: number
+  noiseRangeM?: number
+  droneModelId?: string
 }
 
 export interface PlanResponse {
@@ -11,6 +14,7 @@ export interface PlanResponse {
   buildingCount?: number
   buildingWarning?: string | null
   clearanceM?: number
+  cruiseAltitudeM?: number
   avoidBuildings?: boolean
 }
 

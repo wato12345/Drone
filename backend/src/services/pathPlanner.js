@@ -273,9 +273,9 @@ function statesToPath(states, nodes) {
   })
 }
 
-function envelopeAltitudesWithProfiles(coords, profiles, seedAlts = []) {
-  const alts = coords.map(([lng, lat], index) =>
-    Math.max(seedAlts[index] ?? BASE_CRUISE_M, profiles[index]?.requiredAltM ?? BASE_CRUISE_M),
+function envelopeAltitudesWithProfiles(coords, profiles, seedAlts = [], cruiseAltitudeM = BASE_CRUISE_M) {
+  const alts = coords.map((_coord, index) =>
+    Math.max(seedAlts[index] ?? cruiseAltitudeM, profiles[index]?.requiredAltM ?? cruiseAltitudeM),
   )
 
   for (let i = 1; i < alts.length; i++) {
@@ -288,7 +288,7 @@ function envelopeAltitudesWithProfiles(coords, profiles, seedAlts = []) {
   return alts.map((alt) => Math.round(alt))
 }
 
-function simplify3dPath(states, nodes, profiles) {
+function simplify3dPath(states, nodes, profiles, cruiseAltitudeM = BASE_CRUISE_M) {
   const raw = statesToPath(states, nodes)
   if (raw.length <= 2) {
     const coords = raw.map((p) => p.coord)
@@ -296,6 +296,7 @@ function simplify3dPath(states, nodes, profiles) {
       coords,
       coords.map((_, i) => profiles[nearestNodeIndex(nodes, coords[i])]),
       raw.map((p) => p.altM),
+      cruiseAltitudeM,
     )
     return { coords, altitudes }
   }
@@ -321,6 +322,7 @@ function simplify3dPath(states, nodes, profiles) {
     coords,
     nodeProfilesAlongPath,
     simplified.map((p) => p.altM),
+    cruiseAltitudeM,
   )
 
   return { coords, altitudes }
@@ -489,9 +491,12 @@ function planHorizontalPath(nodes, profiles, startIdx, endIdx, weights, gridSize
 }
 
 function planVerticalAwarePath(nodes, profiles, startIdx, endIdx, weights, gridSize, options = {}) {
+  const cruiseAltitudeM = Number.isFinite(options.cruiseAltitudeM)
+    ? options.cruiseAltitudeM
+    : BASE_CRUISE_M
   const states = astar3d(nodes, startIdx, endIdx, profiles, weights, gridSize, options)
   if (!states) return null
-  return { ...simplify3dPath(states, nodes, profiles), is3D: true }
+  return { ...simplify3dPath(states, nodes, profiles, cruiseAltitudeM), is3D: true }
 }
 
 /** Raise altitude wherever the path is inside clearance so segments stay non-red. */
@@ -528,8 +533,10 @@ function planWithClearancePolicy(
   end,
   buildingIndex,
   clearanceM,
+  cruiseAltitudeM = BASE_CRUISE_M,
 ) {
   const straightKm = Math.max(haversineKm(start, end), 1e-6)
+  const searchOptions = { cruiseAltitudeM }
 
   const strictPlan = planVerticalAwarePath(
     nodes,
@@ -538,7 +545,7 @@ function planWithClearancePolicy(
     endIdx,
     weights,
     gridSize,
-    { allowClearanceViolation: false },
+    { ...searchOptions, allowClearanceViolation: false },
   )
 
   if (strictPlan && isCompletePlan(strictPlan, end)) {
@@ -564,7 +571,7 @@ function planWithClearancePolicy(
     endIdx,
     { ...weights, building: Math.max(weights.building ?? 0, 0.35) },
     gridSize,
-    { allowClearanceViolation: true },
+    { ...searchOptions, allowClearanceViolation: true },
   )
 
   if (relaxedPlan && isCompletePlan(relaxedPlan, end)) {
@@ -587,17 +594,17 @@ function planWithClearancePolicy(
 
   return {
     coords: [start, end],
-    altitudes: [BASE_CRUISE_M, BASE_CRUISE_M],
+    altitudes: [cruiseAltitudeM, cruiseAltitudeM],
     is3D: true,
     allowsViolation: true,
   }
 }
 
-function emptyProfiles(nodes) {
+function emptyProfiles(nodes, cruiseAltitudeM = BASE_CRUISE_M) {
   return nodes.map(() => ({
     minDistM: Infinity,
-    requiredAltM: BASE_CRUISE_M,
-    minLayer: altMToLayer(BASE_CRUISE_M),
+    requiredAltM: cruiseAltitudeM,
+    minLayer: altMToLayer(cruiseAltitudeM),
     violationCost: 0,
     coveringFaces: 0,
   }))
@@ -606,6 +613,9 @@ function emptyProfiles(nodes) {
 export async function planPaths(start, end, options = {}) {
   const avoidBuildings = options.avoidBuildings !== false
   const clearanceM = Number.isFinite(options.clearanceM) ? options.clearanceM : DEFAULT_CLEARANCE_M
+  const cruiseAltitudeM = Number.isFinite(options.cruiseAltitudeM)
+    ? Math.min(150, Math.max(40, Math.round(options.cruiseAltitudeM)))
+    : BASE_CRUISE_M
 
   let buildings = []
   let buildingWarning = null
@@ -630,9 +640,18 @@ export async function planPaths(start, end, options = {}) {
     buildingIndex.criticalM = CRITICAL_CLEARANCE_M
   }
 
-  const profiles = buildingIndex
+  const rawProfiles = buildingIndex
     ? buildingIndex.buildNodeProfiles(nodes, clearanceM, altMToLayer)
-    : emptyProfiles(nodes)
+    : emptyProfiles(nodes, cruiseAltitudeM)
+
+  const profiles = rawProfiles.map((profile) => {
+    const requiredAltM = Math.max(profile.requiredAltM, cruiseAltitudeM)
+    return {
+      ...profile,
+      requiredAltM,
+      minLayer: altMToLayer(requiredAltM),
+    }
+  })
 
   // Prefer clearance-safe A*; allow red/violation only if safe detour > 2× straight line.
   const shortestPlan = effectiveAvoidance
@@ -651,6 +670,7 @@ export async function planPaths(start, end, options = {}) {
         end,
         buildingIndex,
         clearanceM,
+        cruiseAltitudeM,
       )
     : planVerticalAwarePath(
         nodes,
@@ -663,9 +683,10 @@ export async function planPaths(start, end, options = {}) {
           climb: 0.75,
         },
         gridSize,
+        { cruiseAltitudeM },
       ) ?? {
         coords: [start, end],
-        altitudes: [BASE_CRUISE_M, BASE_CRUISE_M],
+        altitudes: [cruiseAltitudeM, cruiseAltitudeM],
         is3D: true,
       }
 
@@ -685,6 +706,7 @@ export async function planPaths(start, end, options = {}) {
         end,
         buildingIndex,
         clearanceM,
+        cruiseAltitudeM,
       )
     : planVerticalAwarePath(
         nodes,
@@ -697,9 +719,10 @@ export async function planPaths(start, end, options = {}) {
           climb: 1.15,
         },
         gridSize,
+        { cruiseAltitudeM },
       ) ?? {
         coords: [start, end],
-        altitudes: [BASE_CRUISE_M + 20, BASE_CRUISE_M + 20],
+        altitudes: [cruiseAltitudeM + 20, cruiseAltitudeM + 20],
         is3D: true,
       }
 
@@ -745,6 +768,7 @@ export async function planPaths(start, end, options = {}) {
     buildingCount: buildings.length,
     buildingWarning,
     clearanceM,
+    cruiseAltitudeM,
     avoidBuildings: effectiveAvoidance,
     paths: [
       buildPathResult(
@@ -796,6 +820,13 @@ export function validatePlanInput(body) {
     }
   }
 
+  if (body?.cruiseAltitudeM !== undefined) {
+    const value = Number(body.cruiseAltitudeM)
+    if (!Number.isFinite(value) || value < 40 || value > 150) {
+      return '巡航高度需在 40–150 米之间'
+    }
+  }
+
   return null
 }
 
@@ -803,5 +834,7 @@ export function parsePlanOptions(body) {
   return {
     avoidBuildings: body?.avoidBuildings !== false,
     clearanceM: body?.clearanceM !== undefined ? Number(body.clearanceM) : DEFAULT_CLEARANCE_M,
+    cruiseAltitudeM:
+      body?.cruiseAltitudeM !== undefined ? Number(body.cruiseAltitudeM) : BASE_CRUISE_M,
   }
 }

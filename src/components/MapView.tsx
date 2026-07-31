@@ -11,6 +11,7 @@ import type { WeatherData } from '../api/weather'
 import type { BuildingFeature, LngLat, PickMode, PlannedPath } from '../types'
 import type { WeatherCondition } from '../utils/weatherCodes'
 import { buildFlight3dCollections, pathHas3d } from '../utils/flight3d'
+import { buildNoiseRangeFeatures } from '../utils/noiseRange'
 import { LoadingDots } from './LoadingDots'
 import { WeatherBadge } from './WeatherBadge'
 import { WeatherOverlay } from './WeatherOverlay'
@@ -36,6 +37,8 @@ interface MapViewProps {
   onToggleWeatherLayer: () => void
   onRefreshWeather: () => void
   onMapClick: (lngLat: LngLat) => void
+  noiseRangeM?: number
+  showNoiseRange?: boolean
 }
 
 export function MapView({
@@ -56,6 +59,8 @@ export function MapView({
   onToggleWeatherLayer,
   onRefreshWeather,
   onMapClick,
+  noiseRangeM = 0,
+  showNoiseRange = false,
 }: MapViewProps) {
   const mapRef = useRef<MapRef>(null)
 
@@ -69,6 +74,16 @@ export function MapView({
 
   const flight3d = useMemo(() => buildFlight3dCollections(paths), [paths])
   const show3dFlight = pathHas3d(paths)
+
+  const noiseRangeCollection = useMemo(() => {
+    if (!showNoiseRange || noiseRangeM <= 0 || paths.length === 0) {
+      return { type: 'FeatureCollection' as const, features: [] }
+    }
+    const features = paths.flatMap((path) =>
+      buildNoiseRangeFeatures(path.coordinates, noiseRangeM, path.color, path.id),
+    )
+    return { type: 'FeatureCollection' as const, features }
+  }, [paths, noiseRangeM, showNoiseRange])
 
   const fitBounds = useCallback(() => {
     const map = mapRef.current?.getMap()
@@ -152,6 +167,29 @@ export function MapView({
                 'fill-extrusion-height': ['get', 'height'],
                 'fill-extrusion-base': 0,
                 'fill-extrusion-opacity': 0.72,
+              }}
+            />
+          </Source>
+        )}
+
+        {noiseRangeCollection.features.length > 0 && (
+          <Source id="noise-range" type="geojson" data={noiseRangeCollection}>
+            <Layer
+              id="noise-range-fill"
+              type="fill"
+              paint={{
+                'fill-color': ['get', 'color'],
+                'fill-opacity': 0.12,
+              }}
+            />
+            <Layer
+              id="noise-range-outline"
+              type="line"
+              paint={{
+                'line-color': ['get', 'color'],
+                'line-width': 1,
+                'line-opacity': 0.55,
+                'line-dasharray': [2, 1.5],
               }}
             />
           </Source>
@@ -273,6 +311,9 @@ export function MapView({
         <div className="overlay-item shortest">最短路径（A*）</div>
         <div className="overlay-item optimized">智能优化路径（A*）</div>
         {show3dFlight && <div className="overlay-item flight-3d">立体航线 · 拖动旋转看高度</div>}
+        {showNoiseRange && noiseRangeM > 0 && (
+          <div className="overlay-item noise-range">噪音范围 · {noiseRangeM} m</div>
+        )}
         {paths.some((path) => path.segments?.some((segment) => segment.status === 'violation')) && (
           <div className="overlay-item clearance-violation">未满足净空</div>
         )}

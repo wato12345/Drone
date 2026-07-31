@@ -2,6 +2,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './components/AppLayout'
 import AboutPage from './pages/AboutPage'
 import BuildingAvoidancePage from './pages/BuildingAvoidancePage'
+import FlightSettingsPage from './pages/FlightSettingsPage'
 import HomePage from './pages/HomePage'
 import NotFoundRedirect from './pages/NotFoundRedirect'
 import PlannerPage from './pages/PlannerPage'
@@ -15,6 +16,7 @@ export default function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/planner" element={<PlannerPage />} />
           <Route path="/building-avoidance" element={<BuildingAvoidancePage />} />
+          <Route path="/flight-settings" element={<FlightSettingsPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="*" element={<NotFoundRedirect />} />
         </Route>

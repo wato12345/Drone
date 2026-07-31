@@ -35,6 +35,9 @@ export default function PlannerPage() {
           avoidBuildings={planner.avoidBuildings}
           clearanceM={planner.clearanceM}
           buildingCount={planner.buildingCount}
+          cruiseAltitudeM={planner.cruiseAltitudeM}
+          noiseRangeM={planner.noiseRangeM}
+          droneModelName={planner.droneModel.name}
           planWarning={planner.planWarning}
           error={planner.error}
           weather={weather.displayWeather}
@@ -71,6 +74,8 @@ export default function PlannerPage() {
           onToggleWeatherLayer={() => weather.setShowLayer((v) => !v)}
           onRefreshWeather={weather.refresh}
           onMapClick={planner.handleMapClick}
+          noiseRangeM={planner.noiseRangeM}
+          showNoiseRange={planner.showNoiseRange}
         />
       </main>
     </div>

@@ -535,7 +535,8 @@ body {
 .overlay-item.optimized::before,
 .overlay-item.clearance-violation::before,
 .overlay-item.clearance-critical::before,
-.overlay-item.flight-3d::before {
+.overlay-item.flight-3d::before,
+.overlay-item.noise-range::before {
   content: '';
   display: inline-block;
   width: 0.55rem;
@@ -562,6 +563,11 @@ body {
 
 .overlay-item.flight-3d::before {
   background: linear-gradient(180deg, #38bdf8, #a855f7);
+}
+
+.overlay-item.noise-range::before {
+  background: #f59e0b;
+  opacity: 0.85;
 }
 
 .marker {
@@ -1047,6 +1053,90 @@ body {
   color: #94a3b8;
 }
 
+/* ── Legacy user ad modal ── */
+
+.ad-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: rgba(2, 6, 23, 0.78);
+  backdrop-filter: blur(8px);
+}
+
+.ad-modal {
+  position: relative;
+  width: min(100%, 440px);
+  padding: 1.75rem 1.5rem 1.5rem;
+  border-radius: 1rem;
+  background: linear-gradient(160deg, rgba(30, 41, 59, 0.98), rgba(15, 23, 42, 0.98));
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  box-shadow: 0 28px 70px rgba(2, 6, 23, 0.55);
+}
+
+.ad-modal-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: rgba(30, 41, 59, 0.85);
+  color: #94a3b8;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ad-modal-close:hover {
+  color: #e2e8f0;
+  background: rgba(51, 65, 85, 0.95);
+}
+
+.ad-modal-tag {
+  margin: 0 0 0.75rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fbbf24;
+}
+
+.ad-modal-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.35rem;
+  line-height: 1.35;
+  color: #f8fafc;
+}
+
+.ad-modal-body {
+  margin: 0 0 1.25rem;
+  color: #cbd5e1;
+  line-height: 1.6;
+}
+
+.ad-modal-cta {
+  width: 100%;
+}
+
+.ad-modal-dismiss {
+  display: block;
+  width: 100%;
+  margin-top: 0.75rem;
+  padding: 0.5rem;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.ad-modal-dismiss:hover {
+  color: #94a3b8;
+}
+
 /* ── Auth modal ── */
 
 .auth-modal-backdrop {
@@ -1399,6 +1489,49 @@ body {
 .building-avoidance-card {
   display: grid;
   gap: 1.25rem;
+}
+
+.drone-model-grid {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+}
+
+.drone-model-card {
+  display: grid;
+  gap: 0.35rem;
+  text-align: left;
+  padding: 0.9rem 1rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(15, 23, 42, 0.55);
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.drone-model-card:hover {
+  border-color: rgba(56, 189, 248, 0.55);
+}
+
+.drone-model-card.active {
+  border-color: rgba(56, 189, 248, 0.9);
+  background: rgba(14, 116, 144, 0.28);
+}
+
+.drone-model-card strong {
+  font-size: 0.95rem;
+}
+
+.drone-model-card span,
+.drone-model-card small,
+.page-muted {
+  color: #94a3b8;
+  font-size: 0.84rem;
+}
+
+.drone-model-card small {
+  font-size: 0.78rem;
 }
 
 .building-avoidance-toggle-row {

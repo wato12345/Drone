@@ -17,6 +17,9 @@ interface ControlPanelProps {
   avoidBuildings: boolean
   clearanceM: number
   buildingCount: number
+  cruiseAltitudeM: number
+  noiseRangeM: number
+  droneModelName: string
   planWarning: string | null
   error: string | null
   weather: WeatherData | null
@@ -46,6 +49,9 @@ export function ControlPanel({
   avoidBuildings,
   clearanceM,
   buildingCount,
+  cruiseAltitudeM,
+  noiseRangeM,
+  droneModelName,
   planWarning,
   error,
   weather,
@@ -110,6 +116,16 @@ export function ControlPanel({
             {avoidBuildings
               ? `已启用 · 净空 ${clearanceM} m${hasPaths ? ` · 识别 ${buildingCount} 栋` : ''}`
               : '已关闭 · 点击配置'}
+          </span>
+        </div>
+        <span className="building-avoidance-link-arrow">›</span>
+      </Link>
+
+      <Link to="/flight-settings" className="building-avoidance-link">
+        <div>
+          <strong>机型与巡航</strong>
+          <span>
+            {droneModelName} · 巡航 {cruiseAltitudeM} m · 噪音 {noiseRangeM} m
           </span>
         </div>
         <span className="building-avoidance-link-arrow">›</span>

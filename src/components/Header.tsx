@@ -57,7 +57,14 @@ export function Header({ onLoginClick }: HeaderProps) {
           >
             建筑避障
           </NavLink>
-          <span>噪音评估</span>
+          <NavLink
+            to="/flight-settings"
+            className={({ isActive }) =>
+              isActive ? 'header-tag-link active' : 'header-tag-link'
+            }
+          >
+            机型噪音
+          </NavLink>
           <span>风阻系数</span>
           <span>双路径对比</span>
         </div>

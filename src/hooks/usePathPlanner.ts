@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
 import { fetchPlan } from '../api/planner'
 import { useBuildingAvoidance } from '../context/BuildingAvoidanceContext'
+import { useFlightSettings } from '../context/FlightSettingsContext'
 import type { BuildingFeature, LngLat, PickMode, PlannedPath } from '../types'
+import type { DroneModel } from '../data/droneModels'
 import { randomNearbyPoint } from '../utils/geo'
 import { DEFAULT_END, DEFAULT_START } from '../utils/pathPlanner'
 
 export function usePathPlanner() {
   const { enabled: avoidBuildings, clearanceM } = useBuildingAvoidance()
+  const { cruiseAltitudeM, noiseRangeM, droneModelId, showNoiseRange, droneModel } =
+    useFlightSettings()
   const [start, setStart] = useState<LngLat>(DEFAULT_START)
   const [end, setEnd] = useState<LngLat>(DEFAULT_END)
   const [pickMode, setPickMode] = useState<PickMode>(null)
@@ -78,7 +82,13 @@ export function usePathPlanner() {
       await new Promise<void>((resolve) => {
         requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
       })
-      const result = await fetchPlan(start, end, { avoidBuildings, clearanceM })
+      const result = await fetchPlan(start, end, {
+        avoidBuildings,
+        clearanceM,
+        cruiseAltitudeM,
+        noiseRangeM,
+        droneModelId,
+      })
       setPaths(result.paths)
       setBuildings(result.buildings ?? [])
       setBuildingCount(result.buildingCount ?? result.buildings?.length ?? 0)
@@ -92,7 +102,7 @@ export function usePathPlanner() {
     } finally {
       setIsPlanning(false)
     }
-  }, [start, end, avoidBuildings, clearanceM])
+  }, [start, end, avoidBuildings, clearanceM, cruiseAltitudeM, noiseRangeM, droneModelId])
 
   const clearAll = useCallback(() => {
     setPaths([])
@@ -116,6 +126,10 @@ export function usePathPlanner() {
     planWarning,
     avoidBuildings,
     clearanceM,
+    cruiseAltitudeM,
+    noiseRangeM,
+    showNoiseRange,
+    droneModel: droneModel as DroneModel,
     isPlanning,
     isLocating,
     error,
