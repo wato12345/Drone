@@ -1,0 +1,47 @@
+{
+  "folders": {},
+  "connections": {
+    "mysql8-drone-path-planner-local": {
+      "provider": "mysql",
+      "driver": "mysql8",
+      "name": "Drone Path Planner (Local)",
+      "save-password": true,
+      "configuration": {
+        "host": "127.0.0.1",
+        "port": "3305",
+        "database": "drone_path_planner",
+        "url": "jdbc:mysql://127.0.0.1:3305/drone_path_planner?allowPublicKeyRetrieval=true&useSSL=false",
+        "configurationType": "MANUAL",
+        "type": "dev",
+        "closeIdleConnection": true,
+        "auth-model": "native",
+        "user": "drone_app",
+        "password": "drone_dev_password",
+        "properties": {
+          "connectTimeout": "20000",
+          "allowPublicKeyRetrieval": "TRUE",
+          "useSSL": "false"
+        },
+        "provider-properties": {
+          "@dbeaver-show-all-dbs@": "false"
+        }
+      }
+    }
+  },
+  "connection-types": {
+    "dev": {
+      "name": "Development",
+      "color": "255,255,255",
+      "description": "Regular development database",
+      "auto-commit": true,
+      "confirm-execute": false,
+      "confirm-data-change": false,
+      "smart-commit": false,
+      "smart-commit-recover": true,
+      "auto-close-transactions": true,
+      "close-transactions-period": 1800,
+      "auto-close-connections": true,
+      "close-connections-period": 14400
+    }
+  }
+}

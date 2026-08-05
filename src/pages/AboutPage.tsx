@@ -8,7 +8,7 @@ export default function AboutPage() {
         <h1>关于本项目</h1>
         <p className="page-lead">
           本项目是一个面向城市低空场景的无人机路径规划演示系统，前端基于 React + MapLibre GL，
-          后端提供用户认证与 SQLite 数据持久化。
+          后端提供用户认证与 MySQL 数据持久化。
         </p>
       </section>
 
@@ -33,7 +33,7 @@ export default function AboutPage() {
             </div>
             <div>
               <dt>后端</dt>
-              <dd>Express · SQLite · bcrypt · JWT</dd>
+              <dd>Express · MySQL · bcrypt · JWT</dd>
             </div>
             <div>
               <dt>地图</dt>

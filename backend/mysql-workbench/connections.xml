@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<data grt_format="2.0">
+  <value type="list" content-type="object" content-struct-name="">
+    <value type="object" struct-name="db.mgmt.Connection" id="drone-local">
+      <link type="object" struct-name="db.mgmt.Driver" key="driver">com.mysql.rdbms.mysql.driver.native</link>
+      <value type="string" key="hostName">127.0.0.1</value>
+      <value type="int" key="hostPort">3305</value>
+      <value type="string" key="name">Drone Path Planner (Local)</value>
+      <value type="string" key="schema">drone_path_planner</value>
+      <value type="string" key="userName">drone_app</value>
+      <value type="string" key="parameterDefinition">{"defaultSchema":"drone_path_planner"}</value>
+    </value>
+  </value>
+</data>

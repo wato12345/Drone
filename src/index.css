@@ -227,6 +227,71 @@ body {
   line-height: 1;
 }
 
+.building-avoidance-inline {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+  padding: 0.8rem 0.9rem;
+  border-radius: 0.8rem;
+  background: rgba(30, 41, 59, 0.75);
+  border: 1px solid rgba(249, 115, 22, 0.25);
+}
+
+.building-avoidance-inline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.building-avoidance-inline-header strong {
+  display: block;
+  font-size: 0.84rem;
+}
+
+.building-avoidance-inline-header span {
+  display: block;
+  margin-top: 0.15rem;
+  color: #94a3b8;
+  font-size: 0.76rem;
+}
+
+.building-avoidance-inline-field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.building-avoidance-inline-field.is-disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.building-avoidance-inline-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.building-avoidance-inline-label label {
+  color: #cbd5e1;
+  font-size: 0.78rem;
+}
+
+.building-avoidance-inline .building-avoidance-input-row {
+  margin-top: 0;
+}
+
+.building-avoidance-inline .building-avoidance-input-row input[type='number'] {
+  width: 3.6rem;
+  padding: 0.35rem 0.45rem;
+  font-size: 0.82rem;
+}
+
+.building-avoidance-inline .building-avoidance-range {
+  margin-top: 0.25rem;
+}
+
 .dot,
 .path-dot {
   width: 0.75rem;

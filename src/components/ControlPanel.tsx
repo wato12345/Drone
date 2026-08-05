@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useBuildingAvoidance } from '../context/BuildingAvoidanceContext'
 import { LoadingDots } from './LoadingDots'
 import type { WeatherData } from '../api/weather'
 import type { LngLat, PickMode } from '../types'
@@ -14,8 +15,6 @@ interface ControlPanelProps {
   isPlanning: boolean
   isLocating: boolean
   hasPaths: boolean
-  avoidBuildings: boolean
-  clearanceM: number
   buildingCount: number
   cruiseAltitudeM: number
   noiseRangeM: number
@@ -46,8 +45,6 @@ export function ControlPanel({
   isPlanning,
   isLocating,
   hasPaths,
-  avoidBuildings,
-  clearanceM,
   buildingCount,
   cruiseAltitudeM,
   noiseRangeM,
@@ -64,6 +61,7 @@ export function ControlPanel({
   onLocateMe,
 }: ControlPanelProps) {
   const [planAnimationKey, setPlanAnimationKey] = useState(0)
+  const { enabled, clearanceM, setEnabled, setClearanceM } = useBuildingAvoidance()
 
   useEffect(() => {
     if (isPlanning) {
@@ -109,17 +107,57 @@ export function ControlPanel({
         </div>
       </div>
 
-      <Link to="/building-avoidance" className="building-avoidance-link">
-        <div>
-          <strong>建筑规避</strong>
-          <span>
-            {avoidBuildings
-              ? `已启用 · 净空 ${clearanceM} m${hasPaths ? ` · 识别 ${buildingCount} 栋` : ''}`
-              : '已关闭 · 点击配置'}
-          </span>
+      <div className="building-avoidance-inline">
+        <div className="building-avoidance-inline-header">
+          <div>
+            <strong>建筑规避</strong>
+            <span>
+              {enabled
+                ? `净空 ${clearanceM} m${hasPaths ? ` · 识别 ${buildingCount} 栋` : ''}`
+                : '已关闭'}
+            </span>
+          </div>
+          <label className="toggle-switch" title={enabled ? '关闭建筑规避' : '启用建筑规避'}>
+            <input
+              type="checkbox"
+              checked={enabled}
+              onChange={(event) => setEnabled(event.target.checked)}
+              aria-label="启用建筑规避"
+            />
+            <span className="toggle-slider" />
+          </label>
         </div>
-        <span className="building-avoidance-link-arrow">›</span>
-      </Link>
+
+        <div className={`building-avoidance-inline-field${enabled ? '' : ' is-disabled'}`}>
+          <div className="building-avoidance-inline-label">
+            <label htmlFor="sidebar-clearance-input">最小净空</label>
+            <div className="building-avoidance-input-row">
+              <input
+                id="sidebar-clearance-input"
+                type="number"
+                min={5}
+                max={100}
+                step={1}
+                value={clearanceM}
+                disabled={!enabled}
+                onChange={(event) => setClearanceM(Number(event.target.value))}
+              />
+              <span className="building-avoidance-unit">m</span>
+            </div>
+          </div>
+          <input
+            type="range"
+            min={5}
+            max={100}
+            step={1}
+            value={clearanceM}
+            disabled={!enabled}
+            onChange={(event) => setClearanceM(Number(event.target.value))}
+            className="building-avoidance-range"
+            aria-label="最小净空距离（米）"
+          />
+        </div>
+      </div>
 
       <Link to="/flight-settings" className="building-avoidance-link">
         <div>

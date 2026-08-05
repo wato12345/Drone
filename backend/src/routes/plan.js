@@ -7,12 +7,6 @@ import {
   validatePlanInput,
 } from '../services/pathPlanner.js'
 
-const PLAN_MIN_DURATION_MS = 800
-
-function delay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
 export function createPlanRouter() {
   const router = Router()
 
@@ -26,15 +20,10 @@ export function createPlanRouter() {
       return res.status(400).json({ error: validationError })
     }
 
-    const startedAt = Date.now()
     const options = parsePlanOptions(req.body)
 
     try {
       const result = await planPaths(req.body.start, req.body.end, options)
-      const elapsed = Date.now() - startedAt
-      if (elapsed < PLAN_MIN_DURATION_MS) {
-        await delay(PLAN_MIN_DURATION_MS - elapsed)
-      }
       res.json(result)
     } catch (err) {
       console.error('Plan error:', err)

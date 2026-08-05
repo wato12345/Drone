@@ -2,13 +2,13 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import 'dotenv/config'
-import { createUser, findUserByUsername, getDb, listUsers } from '../src/db/index.js'
+import { createUser, findUserByUsername, initDb, listUsers } from '../src/db/index.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const defaultJsonPath = path.join(__dirname, '../../server/data/users.json')
 const jsonPath = process.argv[2] ?? defaultJsonPath
 
-getDb()
+await initDb()
 
 if (!fs.existsSync(jsonPath)) {
   console.error(`JSON file not found: ${jsonPath}`)
@@ -20,13 +20,13 @@ let imported = 0
 let skipped = 0
 
 for (const user of users) {
-  if (findUserByUsername(user.username)) {
+  if (await findUserByUsername(user.username)) {
     console.log(`Skip existing user: ${user.username}`)
     skipped++
     continue
   }
 
-  createUser({
+  await createUser({
     id: user.id,
     username: user.username,
     email: user.email,
@@ -37,4 +37,5 @@ for (const user of users) {
   imported++
 }
 
-console.log(`Done. imported=${imported}, skipped=${skipped}, total=${listUsers().length}`)
+const allUsers = await listUsers()
+console.log(`Done. imported=${imported}, skipped=${skipped}, total=${allUsers.length}`)

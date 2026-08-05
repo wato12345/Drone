@@ -32,8 +32,6 @@ export default function PlannerPage() {
           isPlanning={planner.isPlanning}
           isLocating={planner.isLocating}
           hasPaths={planner.paths.length > 0}
-          avoidBuildings={planner.avoidBuildings}
-          clearanceM={planner.clearanceM}
           buildingCount={planner.buildingCount}
           cruiseAltitudeM={planner.cruiseAltitudeM}
           noiseRangeM={planner.noiseRangeM}
