@@ -51,13 +51,13 @@ export function createAuthRouter({ isProd }) {
       res.status(201).json({ user: toPublicUser(user) })
     } catch (err) {
       if (err instanceof Error && err.message === 'USERNAME_TAKEN') {
-        return res.status(409).json({ error: '用户名已被占用' })
+        return res.status(409).json({ error: 'Username already taken' })
       }
       if (err instanceof Error && err.message === 'EMAIL_TAKEN') {
-        return res.status(409).json({ error: '邮箱已被注册' })
+        return res.status(409).json({ error: 'Email already registered' })
       }
       console.error('Register error:', err)
-      res.status(500).json({ error: '注册失败，请稍后重试' })
+      res.status(500).json({ error: 'Registration failed; please try again later' })
     }
   })
 
@@ -67,17 +67,17 @@ export function createAuthRouter({ isProd }) {
       const password = req.body?.password
 
       if (!username || !password) {
-        return res.status(400).json({ error: '请输入用户名和密码' })
+        return res.status(400).json({ error: 'Please enter username and password' })
       }
 
       const user = await findUserByUsername(username)
       if (!user) {
-        return res.status(401).json({ error: '用户名或密码错误' })
+        return res.status(401).json({ error: 'Invalid credentials' })
       }
 
       const valid = await verifyPassword(password, user.password_hash)
       if (!valid) {
-        return res.status(401).json({ error: '用户名或密码错误' })
+        return res.status(401).json({ error: 'Invalid credentials' })
       }
 
       const token = signToken(user)
@@ -85,7 +85,7 @@ export function createAuthRouter({ isProd }) {
       res.json({ user: toPublicUser(user) })
     } catch (err) {
       console.error('Login error:', err)
-      res.status(500).json({ error: '登录失败，请稍后重试' })
+      res.status(500).json({ error: 'Login failed; please try again later' })
     }
   })
 

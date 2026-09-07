@@ -118,7 +118,7 @@ export function MapView({
     <div className={`map-wrapper ${pickMode ? 'picking' : ''}`}>
       {pickMode && (
         <div className="map-hint">
-          {pickMode === 'start' ? '点击地图设置起点' : '点击地图设置终点'}
+          {pickMode === 'start' ? 'Click map to set start' : 'Click map to set end'}
         </div>
       )}
 
@@ -255,25 +255,25 @@ export function MapView({
         <Marker longitude={start[0]} latitude={start[1]} anchor="bottom">
           <div className="map-marker map-marker-start">
             {placeNamesLoading && !startPlaceName ? (
-              <LoadingDots label="解析中" className="map-marker-label loading" />
+              <LoadingDots label="Resolving" className="map-marker-label loading" />
             ) : startPlaceName ? (
               <span className="map-marker-label" title={startPlaceName}>
                 {startPlaceName}
               </span>
             ) : null}
-            <div className="marker start-marker">起</div>
+            <div className="marker start-marker">S</div>
           </div>
         </Marker>
         <Marker longitude={end[0]} latitude={end[1]} anchor="bottom">
           <div className="map-marker map-marker-end">
             {placeNamesLoading && !endPlaceName ? (
-              <LoadingDots label="解析中" className="map-marker-label loading" />
+              <LoadingDots label="Resolving" className="map-marker-label loading" />
             ) : endPlaceName ? (
               <span className="map-marker-label" title={endPlaceName}>
                 {endPlaceName}
               </span>
             ) : null}
-            <div className="marker end-marker">终</div>
+            <div className="marker end-marker">E</div>
           </div>
         </Marker>
       </Map>
@@ -298,14 +298,14 @@ export function MapView({
       />
 
       <div className="map-overlay">
-        <div className="overlay-item shortest">最短路径（A*）</div>
-        <div className="overlay-item optimized">智能优化路径（A*）</div>
-        {show3dFlight && <div className="overlay-item flight-3d">立体航线 · 拖动旋转看高度</div>}
+        <div className="overlay-item shortest">Shortest path (A*)</div>
+        <div className="overlay-item optimized">Optimized path (A*)</div>
+        {show3dFlight && <div className="overlay-item flight-3d">3D route · Drag to rotate and view altitude</div>}
         {showNoiseRange && noiseRangeM > 0 && (
-          <div className="overlay-item noise-range">噪音范围 · {noiseRangeM} m</div>
+          <div className="overlay-item noise-range">Noise range · {noiseRangeM} m</div>
         )}
         {paths.some((path) => path.segments?.some((segment) => segment.status === 'violation')) && (
-          <div className="overlay-item clearance-violation">未满足净空</div>
+          <div className="overlay-item clearance-violation">Clearance not met</div>
         )}
       </div>
     </div>

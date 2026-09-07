@@ -5,7 +5,7 @@ const API_BASE = import.meta.env.VITE_API_BASE ?? '/api'
 async function parseJson<T>(response: Response): Promise<T> {
   const data = await response.json()
   if (!response.ok) {
-    const message = typeof data?.error === 'string' ? data.error : '请求失败'
+    const message = typeof data?.error === 'string' ? data.error : 'Request failed'
     throw new Error(message)
   }
   return data as T

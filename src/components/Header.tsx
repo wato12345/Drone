@@ -25,27 +25,33 @@ export function Header({ onLoginClick }: HeaderProps) {
         <NavLink to="/" className="header-brand-link">
           <div className="header-icon">UAV</div>
           <div>
-            <h1>无人机智能路径规划系统</h1>
-            <p>城市低空飞行 · 多源数据融合 · A* 智能路径优化</p>
+            <h1>Intelligent Drone Path Planning System</h1>
+            <p>Urban Low-Altitude Flight · Multi-Source Data Fusion · A* Path Optimization</p>
           </div>
         </NavLink>
       </div>
       <div className="header-actions">
         <nav className="header-nav">
           <NavLink to="/" end className={({ isActive }) => (isActive ? 'header-nav-link active' : 'header-nav-link')}>
-            首页
+            Home
           </NavLink>
           <NavLink
             to="/planner"
             className={({ isActive }) => (isActive ? 'header-nav-link active' : 'header-nav-link')}
           >
-            路径规划
+            Planner
+          </NavLink>
+          <NavLink
+            to="/studio"
+            className={({ isActive }) => (isActive ? 'header-nav-link active' : 'header-nav-link')}
+          >
+            Studio
           </NavLink>
           <NavLink
             to="/about"
             className={({ isActive }) => (isActive ? 'header-nav-link active' : 'header-nav-link')}
           >
-            关于
+            About
           </NavLink>
         </nav>
         <div className="header-tags">
@@ -55,7 +61,7 @@ export function Header({ onLoginClick }: HeaderProps) {
               isActive ? 'header-tag-link active' : 'header-tag-link'
             }
           >
-            建筑避障
+            Building Avoidance
           </NavLink>
           <NavLink
             to="/flight-settings"
@@ -63,10 +69,10 @@ export function Header({ onLoginClick }: HeaderProps) {
               isActive ? 'header-tag-link active' : 'header-tag-link'
             }
           >
-            机型噪音
+            Drone & Noise
           </NavLink>
-          <span>风阻系数</span>
-          <span>双路径对比</span>
+          <span>Wind Drag</span>
+          <span>Dual Path Comparison</span>
         </div>
         <div className="header-user">
           {user ? (
@@ -78,12 +84,12 @@ export function Header({ onLoginClick }: HeaderProps) {
                 onClick={handleLogout}
                 disabled={loggingOut}
               >
-                {loggingOut ? '退出中…' : '退出登录'}
+                {loggingOut ? 'Logging out…' : 'Log Out'}
               </button>
             </>
           ) : (
             <button type="button" className="btn btn-login" onClick={onLoginClick}>
-              登录
+              Log In
             </button>
           )}
         </div>

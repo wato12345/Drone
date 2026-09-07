@@ -109,6 +109,22 @@ body {
   overflow: hidden;
 }
 
+.pyfii-studio-page {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: #0b1220;
+}
+
+.pyfii-studio-frame {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  border: 0;
+  background: #0b1220;
+}
+
 .app-body {
   height: 100%;
   display: grid;
@@ -538,19 +554,20 @@ body {
   font-weight: 600;
 }
 
-.noise-低 {
+.noise-Low {
   color: #34d399;
 }
 
-.noise-中 {
+.noise-Medium {
   color: #fbbf24;
 }
 
-.noise-高 {
+.noise-High {
   color: #f87171;
 }
 
 .map-area {
+  position: relative;
   height: 100%;
   min-height: 0;
   overflow: hidden;
@@ -749,7 +766,7 @@ body {
   background: rgba(203, 213, 225, 0.08);
 }
 
-/* ── Edge mist (四周云雾) ── */
+/* ── Edge mist ── */
 
 .weather-edge-mist {
   position: absolute;
@@ -1706,6 +1723,187 @@ body {
 
 .not-found-page {
   min-height: 40vh;
+}
+
+/* ── Kimi chat widget ── */
+
+.kimi-chat {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.55rem;
+  pointer-events: none;
+}
+
+.kimi-chat > * {
+  pointer-events: auto;
+}
+
+.kimi-fab {
+  min-width: 3.2rem;
+  height: 2.55rem;
+  padding: 0 0.95rem;
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.95), rgba(34, 197, 94, 0.9));
+  color: #04101d;
+  font-weight: 700;
+  font-size: 0.86rem;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(2, 8, 23, 0.45);
+}
+
+.kimi-fab:hover {
+  filter: brightness(1.05);
+}
+
+.kimi-panel {
+  width: min(320px, calc(100vw - 2rem));
+  max-height: min(420px, 58vh);
+  display: flex;
+  flex-direction: column;
+  border-radius: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(15, 23, 42, 0.96);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 16px 40px rgba(2, 8, 23, 0.5);
+  overflow: hidden;
+}
+
+.kimi-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.75rem 0.85rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.kimi-panel-header strong {
+  display: block;
+  font-size: 0.92rem;
+}
+
+.kimi-panel-header span {
+  display: block;
+  margin-top: 0.15rem;
+  color: #94a3b8;
+  font-size: 0.72rem;
+  max-width: 14rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kimi-close {
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.2rem;
+}
+
+.kimi-messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.7rem 0.75rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.kimi-bubble {
+  max-width: 95%;
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.75rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.kimi-bubble pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+}
+
+.kimi-bubble.user {
+  justify-self: end;
+  background: rgba(14, 165, 233, 0.22);
+  border: 1px solid rgba(56, 189, 248, 0.28);
+}
+
+.kimi-bubble.assistant {
+  justify-self: start;
+  background: rgba(30, 41, 59, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.kimi-typing {
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.kimi-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0 0.75rem 0.45rem;
+}
+
+.kimi-quick button {
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 999px;
+  background: rgba(30, 41, 59, 0.9);
+  color: #cbd5e1;
+  font-size: 0.72rem;
+  padding: 0.25rem 0.55rem;
+  cursor: pointer;
+}
+
+.kimi-quick button:hover {
+  border-color: rgba(56, 189, 248, 0.4);
+  color: #e2e8f0;
+}
+
+.kimi-input-row {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.55rem 0.7rem 0.7rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.kimi-input-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.5rem 0.65rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.9);
+  color: #f8fafc;
+  font-size: 0.82rem;
+}
+
+.kimi-input-row button {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  background: rgba(14, 165, 233, 0.2);
+  color: #e0f2fe;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.kimi-input-row button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 @media (max-width: 960px) {

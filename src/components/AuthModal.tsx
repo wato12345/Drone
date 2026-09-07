@@ -31,7 +31,7 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
     setError(null)
 
     if (mode === 'register' && password !== confirmPassword) {
-      setError('两次输入的密码不一致')
+      setError('Passwords do not match')
       return
     }
 
@@ -44,7 +44,7 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
       }
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : '操作失败')
+      setError(err instanceof Error ? err.message : 'Operation failed')
     } finally {
       setSubmitting(false)
     }
@@ -53,15 +53,15 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
   return (
     <div className="auth-modal-backdrop" onClick={onClose}>
       <div className="auth-card auth-modal" onClick={(e) => e.stopPropagation()}>
-        <button type="button" className="auth-close" onClick={onClose} aria-label="关闭">
+        <button type="button" className="auth-close" onClick={onClose} aria-label="Close">
           ×
         </button>
 
         <div className="auth-brand">
           <div className="auth-icon">UAV</div>
           <div>
-            <h1>账号登录</h1>
-            <p>{mode === 'login' ? '登录您的账号' : '创建新账号'}</p>
+            <h1>Account</h1>
+            <p>{mode === 'login' ? 'Sign in to your account' : 'Create a new account'}</p>
           </div>
         </div>
 
@@ -71,25 +71,25 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
             className={mode === 'login' ? 'auth-tab active' : 'auth-tab'}
             onClick={() => switchMode('login')}
           >
-            登录
+            Sign in
           </button>
           <button
             type="button"
             className={mode === 'register' ? 'auth-tab active' : 'auth-tab'}
             onClick={() => switchMode('register')}
           >
-            注册
+            Register
           </button>
         </div>
 
         <form className="auth-form" onSubmit={handleSubmit}>
           <label className="auth-field">
-            <span>用户名</span>
+            <span>Username</span>
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="3–32 位字母、数字或下划线"
+              placeholder="3–32 letters, numbers, or underscores"
               autoComplete="username"
               required
               minLength={3}
@@ -100,7 +100,7 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
 
           {mode === 'register' && (
             <label className="auth-field">
-              <span>邮箱（可选）</span>
+              <span>Email (optional)</span>
               <input
                 type="email"
                 value={email}
@@ -112,12 +112,12 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
           )}
 
           <label className="auth-field">
-            <span>密码</span>
+            <span>Password</span>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="至少 8 个字符"
+              placeholder="At least 8 characters"
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               required
               minLength={8}
@@ -126,12 +126,12 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
 
           {mode === 'register' && (
             <label className="auth-field">
-              <span>确认密码</span>
+              <span>Confirm password</span>
               <input
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="再次输入密码"
+                placeholder="Re-enter password"
                 autoComplete="new-password"
                 required
                 minLength={8}
@@ -142,7 +142,7 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
           {error && <p className="auth-error">{error}</p>}
 
           <button type="submit" className="btn btn-primary auth-submit" disabled={submitting || isLoading}>
-            {submitting ? '处理中…' : mode === 'login' ? '登录' : '创建账号'}
+            {submitting ? 'Processing…' : mode === 'login' ? 'Sign in' : 'Create account'}
           </button>
         </form>
       </div>

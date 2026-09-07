@@ -33,24 +33,24 @@ export function verifyToken(token) {
 }
 
 export function validateUsername(username) {
-  if (typeof username !== 'string') return '用户名无效'
+  if (typeof username !== 'string') return 'Invalid username'
   const trimmed = username.trim()
-  if (trimmed.length < 3 || trimmed.length > 32) return '用户名长度需为 3–32 个字符'
-  if (!/^[a-zA-Z0-9_]+$/.test(trimmed)) return '用户名只能包含字母、数字和下划线'
+  if (trimmed.length < 3 || trimmed.length > 32) return 'Username must be 3–32 characters'
+  if (!/^[a-zA-Z0-9_]+$/.test(trimmed)) return 'Username may only contain letters, numbers, and underscores'
   return null
 }
 
 export function validatePassword(password) {
-  if (typeof password !== 'string') return '密码无效'
-  if (password.length < 8) return '密码至少 8 个字符'
-  if (password.length > 128) return '密码过长'
+  if (typeof password !== 'string') return 'Invalid password'
+  if (password.length < 8) return 'Password must be at least 8 characters'
+  if (password.length > 128) return 'Password is too long'
   return null
 }
 
 export function validateEmail(email) {
   if (!email) return null
-  if (typeof email !== 'string') return '邮箱无效'
+  if (typeof email !== 'string') return 'Invalid email'
   const trimmed = email.trim()
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return '邮箱格式不正确'
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return 'Invalid email format'
   return null
 }

@@ -8,7 +8,7 @@ export interface PathMetrics {
   maxAltitudeM?: number
   totalClimbM?: number
   is3D?: boolean
-  noiseLevel: '低' | '中' | '高'
+  noiseLevel: 'Low' | 'Medium' | 'High'
   windResistance: number
   buildingAvoidance: number
   estimatedTimeMin: number

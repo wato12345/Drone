@@ -20,8 +20,8 @@ const MAX_SAFE_DETOUR_RATIO = 2
 /** Heavy penalty so relaxed search still prefers staying clear when possible. */
 const VIOLATION_MOVE_PENALTY = 80
 
-export const DEFAULT_START = [121.4998, 31.2397]
-export const DEFAULT_END = [121.5085, 31.2452]
+export const DEFAULT_START = [-73.9855, 40.7484]
+export const DEFAULT_END = [-73.9772, 40.7527]
 export const DEFAULT_CLEARANCE_M = 15
 export const CRITICAL_CLEARANCE_M = 5
 
@@ -194,7 +194,7 @@ function noiseIndex(lng, lat) {
 }
 
 function windResistance(lng, lat) {
-  const windFromEast = Math.max(0, Math.sin((lng - 121.48) * 90))
+  const windFromEast = Math.max(0, Math.sin(lng * 90))
   const gust = Math.abs(Math.sin(lat * 200))
   return windFromEast * 0.7 + gust * 0.3
 }
@@ -428,7 +428,7 @@ function computeMetrics(coords, altitudes, pathProfiles, optimized, clearanceM, 
   })
 
   const violationRatio = buildingSum / coords.length
-  const noiseLevel = noiseSum / coords.length < 0.35 ? '低' : noiseSum / coords.length < 0.65 ? '中' : '高'
+  const noiseLevel = noiseSum / coords.length < 0.35 ? 'Low' : noiseSum / coords.length < 0.65 ? 'Medium' : 'High'
   const cruiseSpeedKmh = optimized ? 42 : 48
 
   return {
@@ -624,7 +624,7 @@ export async function planPaths(start, end, options = {}) {
       buildings = await fetchBuildingsForRoute(start, end)
     } catch (err) {
       buildingWarning =
-        err instanceof Error ? err.message : '建筑数据获取失败，本次未启用建筑规避'
+        err instanceof Error ? err.message : 'Failed to fetch building data; building avoidance was not enabled for this run'
     }
   }
 
@@ -773,7 +773,7 @@ export async function planPaths(start, end, options = {}) {
     paths: [
       buildPathResult(
         'shortest',
-        '最短路径（3D A*）',
+        'Shortest path (3D A*)',
         '#38bdf8',
         shortestPlan.coords,
         shortestPlan.altitudes,
@@ -784,7 +784,7 @@ export async function planPaths(start, end, options = {}) {
       ),
       buildPathResult(
         'optimized',
-        '智能优化路径（3D A*）',
+        'Optimized path (3D A*)',
         '#34d399',
         optimizedPlan.coords,
         optimizedPlan.altitudes,
@@ -810,20 +810,20 @@ export function validatePlanInput(body) {
     !Number.isFinite(end[0]) ||
     !Number.isFinite(end[1])
   ) {
-    return '请提供有效的 start 与 end 坐标 [lng, lat]'
+    return 'Please provide valid start and end coordinates [lng, lat]'
   }
 
   if (body?.clearanceM !== undefined) {
     const value = Number(body.clearanceM)
     if (!Number.isFinite(value) || value < 5 || value > 100) {
-      return '建筑净空距离需在 5–100 米之间'
+      return 'Building clearance must be between 5–100 meters'
     }
   }
 
   if (body?.cruiseAltitudeM !== undefined) {
     const value = Number(body.cruiseAltitudeM)
     if (!Number.isFinite(value) || value < 40 || value > 150) {
-      return '巡航高度需在 40–150 米之间'
+      return 'Cruise altitude must be between 40–150 meters'
     }
   }
 

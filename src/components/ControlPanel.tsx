@@ -71,18 +71,18 @@ export function ControlPanel({
 
   return (
     <section className="control-panel">
-      <h2>路径规划控制台</h2>
+      <h2>Route Planning Console</h2>
       <p className="panel-desc">
-        在地图上选择起点与终点，系统将基于三维 A* 算法生成最短与智能优化航线；拖动地图旋转可查看飞行高度。
+        Select start and end points on the map. The system generates shortest and optimized routes using 3D A*; drag to rotate the map and view flight altitude.
       </p>
 
       <div className="coord-block">
         <div className="coord-row">
           <span className="dot start-dot" />
           <div>
-            <strong>起点</strong>
+            <strong>Start</strong>
             {placeNamesLoading && !startPlaceName ? (
-              <LoadingDots label="正在解析地名" className="coord-place coord-place-loading" />
+              <LoadingDots label="Resolving place name" className="coord-place coord-place-loading" />
             ) : startPlaceName ? (
               <span className="coord-place" title={startPlaceName}>
                 {startPlaceName}
@@ -94,9 +94,9 @@ export function ControlPanel({
         <div className="coord-row">
           <span className="dot end-dot" />
           <div>
-            <strong>终点</strong>
+            <strong>End</strong>
             {placeNamesLoading && !endPlaceName ? (
-              <LoadingDots label="正在解析地名" className="coord-place coord-place-loading" />
+              <LoadingDots label="Resolving place name" className="coord-place coord-place-loading" />
             ) : endPlaceName ? (
               <span className="coord-place" title={endPlaceName}>
                 {endPlaceName}
@@ -110,19 +110,19 @@ export function ControlPanel({
       <div className="building-avoidance-inline">
         <div className="building-avoidance-inline-header">
           <div>
-            <strong>建筑规避</strong>
+            <strong>Building avoidance</strong>
             <span>
               {enabled
-                ? `净空 ${clearanceM} m${hasPaths ? ` · 识别 ${buildingCount} 栋` : ''}`
-                : '已关闭'}
+                ? `Clearance ${clearanceM} m${hasPaths ? ` · ${buildingCount} buildings detected` : ''}`
+                : 'Disabled'}
             </span>
           </div>
-          <label className="toggle-switch" title={enabled ? '关闭建筑规避' : '启用建筑规避'}>
+          <label className="toggle-switch" title={enabled ? 'Disable building avoidance' : 'Enable building avoidance'}>
             <input
               type="checkbox"
               checked={enabled}
               onChange={(event) => setEnabled(event.target.checked)}
-              aria-label="启用建筑规避"
+              aria-label="Enable building avoidance"
             />
             <span className="toggle-slider" />
           </label>
@@ -130,7 +130,7 @@ export function ControlPanel({
 
         <div className={`building-avoidance-inline-field${enabled ? '' : ' is-disabled'}`}>
           <div className="building-avoidance-inline-label">
-            <label htmlFor="sidebar-clearance-input">最小净空</label>
+            <label htmlFor="sidebar-clearance-input">Minimum clearance</label>
             <div className="building-avoidance-input-row">
               <input
                 id="sidebar-clearance-input"
@@ -154,16 +154,16 @@ export function ControlPanel({
             disabled={!enabled}
             onChange={(event) => setClearanceM(Number(event.target.value))}
             className="building-avoidance-range"
-            aria-label="最小净空距离（米）"
+            aria-label="Minimum clearance distance (meters)"
           />
         </div>
       </div>
 
       <Link to="/flight-settings" className="building-avoidance-link">
         <div>
-          <strong>机型与巡航</strong>
+          <strong>Drone & cruise</strong>
           <span>
-            {droneModelName} · 巡航 {cruiseAltitudeM} m · 噪音 {noiseRangeM} m
+            {droneModelName} · Cruise {cruiseAltitudeM} m · Noise {noiseRangeM} m
           </span>
         </div>
         <span className="building-avoidance-link-arrow">›</span>
@@ -175,7 +175,7 @@ export function ControlPanel({
         onClick={onLocateMe}
         disabled={isLocating}
       >
-        {isLocating ? '定位中…' : '定位到我'}
+        {isLocating ? 'Locating…' : 'Locate me'}
       </button>
 
       <div className="button-group">
@@ -184,20 +184,20 @@ export function ControlPanel({
           className={pickMode === 'start' ? 'btn active' : 'btn'}
           onClick={onPickStart}
         >
-          {pickMode === 'start' ? '点击地图设置起点…' : '设置起点'}
+          {pickMode === 'start' ? 'Click map to set start…' : 'Set start'}
         </button>
         <button
           type="button"
           className={pickMode === 'end' ? 'btn active' : 'btn'}
           onClick={onPickEnd}
         >
-          {pickMode === 'end' ? '点击地图设置终点…' : '设置终点'}
+          {pickMode === 'end' ? 'Click map to set end…' : 'Set end'}
         </button>
         <button type="button" className="btn btn-ghost" onClick={onClear} disabled={!hasPaths}>
-          清除路径
+          Clear paths
         </button>
         <button type="button" className="btn btn-ghost" onClick={onResetDemo}>
-          重置示例
+          Reset demo
         </button>
       </div>
 
@@ -208,7 +208,7 @@ export function ControlPanel({
         disabled={isPlanning}
         aria-busy={isPlanning}
       >
-        <span className="btn-plan-label">{isPlanning ? '规划中…' : '开始路径规划'}</span>
+        <span className="btn-plan-label">{isPlanning ? 'Planning…' : 'Start path planning'}</span>
         <span className="btn-plan-runway" aria-hidden={!isPlanning}>
           <span className="btn-plan-track-line" />
           <span className="btn-plan-fill" />
@@ -234,9 +234,9 @@ export function ControlPanel({
       {!error && planWarning && <p className="panel-warning">{planWarning}</p>}
 
       <div className="weather-panel">
-        <h3>实时天气</h3>
+        <h3>Live weather</h3>
         {weatherLoading && !weather ? (
-          <p className="weather-panel-status">正在获取天气…</p>
+          <p className="weather-panel-status">Fetching weather…</p>
         ) : weather ? (
           <div className="weather-panel-content">
             <div className="weather-panel-main">
@@ -247,20 +247,20 @@ export function ControlPanel({
               </div>
             </div>
             <div className="weather-panel-meta">
-              <span>湿度 {weather.humidity}%</span>
-              <span>风速 {weather.windSpeed.toFixed(1)} km/h</span>
-              <span>{weather.isDay ? '白天' : '夜间'}</span>
+              <span>Humidity {weather.humidity}%</span>
+              <span>Wind speed {weather.windSpeed.toFixed(1)} km/h</span>
+              <span>{weather.isDay ? 'Day' : 'Night'}</span>
             </div>
           </div>
         ) : (
-          <p className="weather-panel-status">暂无天气数据</p>
+          <p className="weather-panel-status">No weather data</p>
         )}
       </div>
 
       <div className="legend">
-        <h3>代价函数</h3>
+        <h3>Cost function</h3>
         <code>
-          总代价 = w1×距离 + w2×建筑避障 + w3×噪音 + w4×风阻
+          Total cost = w1×distance + w2×building avoidance + w3×noise + w4×wind resistance
         </code>
       </div>
     </section>

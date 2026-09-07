@@ -29,7 +29,7 @@ export function WeatherBadge({
     <div className="weather-badge">
       <div className="weather-badge-main">
         {isLoading && !weather ? (
-          <span className="weather-badge-loading">加载天气…</span>
+          <span className="weather-badge-loading">Loading weather…</span>
         ) : error && !weather ? (
           <span className="weather-badge-error">{error}</span>
         ) : weather ? (
@@ -38,7 +38,7 @@ export function WeatherBadge({
             <div className="weather-badge-info">
               <strong>
                 {weather.label}
-                {previewCondition && <em className="weather-preview-tag">预览</em>}
+                {previewCondition && <em className="weather-preview-tag">Preview</em>}
               </strong>
               <span>{Math.round(weather.temperature)}°C</span>
             </div>
@@ -48,20 +48,20 @@ export function WeatherBadge({
 
       {weather && (
         <div className="weather-badge-details">
-          <span>湿度 {weather.humidity}%</span>
-          <span>风速 {weather.windSpeed.toFixed(1)} km/h</span>
+          <span>Humidity {weather.humidity}%</span>
+          <span>Wind speed {weather.windSpeed.toFixed(1)} km/h</span>
         </div>
       )}
 
       <label className="weather-preview">
-        <span>效果预览</span>
+        <span>Effect preview</span>
         <select
           value={previewCondition ?? ''}
           onChange={(e) =>
             onPreviewChange(e.target.value ? (e.target.value as WeatherCondition) : null)
           }
         >
-          <option value="">跟随实时天气</option>
+          <option value="">Follow live weather</option>
           {WEATHER_PREVIEW_OPTIONS.map((option) => (
             <option key={option.condition} value={option.condition}>
               {option.icon} {option.label}
@@ -72,10 +72,10 @@ export function WeatherBadge({
 
       <div className="weather-badge-actions">
         <button type="button" className="weather-btn" onClick={onToggleLayer}>
-          {showLayer ? '隐藏图层' : '显示图层'}
+          {showLayer ? 'Hide layer' : 'Show layer'}
         </button>
         <button type="button" className="weather-btn" onClick={onRefresh} disabled={isLoading}>
-          {isLoading ? '刷新中…' : '刷新'}
+          {isLoading ? 'Refreshing…' : 'Refresh'}
         </button>
       </div>
     </div>

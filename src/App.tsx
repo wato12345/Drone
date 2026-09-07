@@ -6,6 +6,7 @@ import FlightSettingsPage from './pages/FlightSettingsPage'
 import HomePage from './pages/HomePage'
 import NotFoundRedirect from './pages/NotFoundRedirect'
 import PlannerPage from './pages/PlannerPage'
+import PyFiiStudioPage from './pages/PyFiiStudioPage'
 import './index.css'
 
 export default function App() {
@@ -17,6 +18,7 @@ export default function App() {
           <Route path="/planner" element={<PlannerPage />} />
           <Route path="/building-avoidance" element={<BuildingAvoidancePage />} />
           <Route path="/flight-settings" element={<FlightSettingsPage />} />
+          <Route path="/studio" element={<PyFiiStudioPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="*" element={<NotFoundRedirect />} />
         </Route>

@@ -37,7 +37,7 @@ function wayToBuildingFeature(way) {
     type: 'Feature',
     properties: {
       height: parseHeight(tags),
-      name: tags.name || tags['addr:street'] || '建筑',
+      name: tags.name || tags['addr:street'] || 'Building',
     },
     geometry: {
       type: 'Polygon',
@@ -51,7 +51,7 @@ function buildOverpassQuery(bbox) {
 }
 
 async function fetchOverpassJson(query) {
-  let lastError = new Error('建筑数据获取失败')
+  let lastError = new Error('Failed to fetch building data')
 
   for (const endpoint of OVERPASS_ENDPOINTS) {
     const controller = new AbortController()
@@ -69,20 +69,20 @@ async function fetchOverpassJson(query) {
       })
 
       if (!response.ok) {
-        lastError = new Error(`Overpass 响应异常 (${response.status})`)
+        lastError = new Error(`Overpass response error (${response.status})`)
         continue
       }
 
       const data = await response.json()
       if (!Array.isArray(data.elements)) {
-        lastError = new Error(typeof data.remark === 'string' ? data.remark : '建筑数据格式异常')
+        lastError = new Error(typeof data.remark === 'string' ? data.remark : 'Invalid building data format')
         continue
       }
 
       return data
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
-        lastError = new Error('建筑数据请求超时，请稍后重试')
+        lastError = new Error('Building data request timed out; please try again later')
       } else if (err instanceof Error) {
         lastError = err
       }

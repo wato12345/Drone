@@ -27,8 +27,8 @@ export function createPlanRouter() {
       res.json(result)
     } catch (err) {
       console.error('Plan error:', err)
-      const message = err instanceof Error ? err.message : '路径规划失败'
-      const status = message.includes('无法') || message.includes('禁飞') ? 422 : 500
+      const message = err instanceof Error ? err.message : 'Path planning failed'
+      const status = message.includes('Unable') || message.includes('no-fly') ? 422 : 500
       res.status(status).json({ error: message })
     }
   })

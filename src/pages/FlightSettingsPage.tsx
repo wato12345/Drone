@@ -18,16 +18,16 @@ export default function FlightSettingsPage() {
     <main className="page-main building-avoidance-page">
       <section className="page-hero page-hero-compact">
         <p className="page-eyebrow">Flight Profile</p>
-        <h1>机型与巡航设置</h1>
+        <h1>Drone Model & Cruise Settings</h1>
         <p className="page-lead">
-          选择无人机机型以加载建议巡航高度与噪音影响半径，也可手动调整巡航高度，并在地图上模拟噪音范围。
+          Select a drone model to load recommended cruise altitude and noise impact radius, adjust cruise altitude manually, and simulate noise range on the map.
         </p>
       </section>
 
       <section className="building-avoidance-content">
         <article className="page-card building-avoidance-card">
-          <h2>无人机机型库</h2>
-          <p className="page-muted">不同机型带有推荐巡航高度与地面噪音 footprint 半径。</p>
+          <h2>Drone Model Library</h2>
+          <p className="page-muted">Each model includes a recommended cruise altitude and ground noise footprint radius.</p>
           <div className="drone-model-grid">
             {DRONE_MODELS.map((model) => {
               const active = model.id === droneModelId
@@ -41,7 +41,7 @@ export default function FlightSettingsPage() {
                   <strong>{model.name}</strong>
                   <span>{model.description}</span>
                   <small>
-                    巡航 {model.cruiseAltitudeM} m · 噪音半径 {model.noiseRangeM} m
+                    Cruise {model.cruiseAltitudeM} m · Noise radius {model.noiseRangeM} m
                   </small>
                 </button>
               )
@@ -52,8 +52,8 @@ export default function FlightSettingsPage() {
         <article className="page-card building-avoidance-card">
           <div className="building-avoidance-field">
             <label htmlFor="cruise-altitude-input">
-              <span>巡航高度（米）</span>
-              <small>规划时优先保持该高度，遇建筑仍会按净空抬升；范围 {CRUISE_ALTITUDE_MIN_M}–{CRUISE_ALTITUDE_MAX_M} m</small>
+              <span>Cruise Altitude (meters)</span>
+              <small>Planning targets this altitude; paths still climb over buildings per clearance rules. Range {CRUISE_ALTITUDE_MIN_M}–{CRUISE_ALTITUDE_MAX_M} m</small>
             </label>
             <div className="building-avoidance-input-row">
               <input
@@ -80,9 +80,9 @@ export default function FlightSettingsPage() {
 
           <div className="building-avoidance-toggle-row">
             <div>
-              <h2>模拟噪音范围</h2>
+              <h2>Simulate Noise Range</h2>
               <p>
-                按当前机型噪音半径（{droneModel.noiseRangeM} m）在航线周围绘制影响范围。
+                Draw the impact zone around the route using the current model&apos;s noise radius ({droneModel.noiseRangeM} m).
               </p>
             </div>
             <label className="toggle-switch">
@@ -96,10 +96,10 @@ export default function FlightSettingsPage() {
           </div>
 
           <div className="building-avoidance-summary">
-            <strong>当前配置</strong>
+            <strong>Current Settings</strong>
             <p>
-              {droneModel.name} · 巡航 {cruiseAltitudeM} m · 噪音半径 {droneModel.noiseRangeM} m
-              {showNoiseRange ? ' · 地图已显示噪音范围' : ' · 噪音范围已隐藏'}
+              {droneModel.name} · Cruise {cruiseAltitudeM} m · Noise radius {droneModel.noiseRangeM} m
+              {showNoiseRange ? ' · Noise range shown on map' : ' · Noise range hidden'}
             </p>
           </div>
         </article>
@@ -107,10 +107,10 @@ export default function FlightSettingsPage() {
 
       <div className="page-actions">
         <Link to="/planner" className="btn btn-primary">
-          返回路径规划
+          Back to Planner
         </Link>
         <button type="button" className="btn btn-ghost" onClick={resetSettings}>
-          恢复默认
+          Reset to Defaults
         </button>
       </div>
     </main>

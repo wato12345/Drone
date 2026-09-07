@@ -54,7 +54,7 @@ export function useWeather(location: LngLat, enabled = true) {
       const data = await fetchWeather(location[1], location[0])
       setWeather(data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : '天气加载失败')
+      setError(err instanceof Error ? err.message : 'Failed to load weather')
     } finally {
       setIsLoading(false)
     }

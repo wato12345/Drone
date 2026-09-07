@@ -5,42 +5,42 @@ export default function AboutPage() {
     <main className="page-main about-page">
       <section className="page-hero page-hero-compact">
         <p className="page-eyebrow">About</p>
-        <h1>关于本项目</h1>
+        <h1>About This Project</h1>
         <p className="page-lead">
-          本项目是一个面向城市低空场景的无人机路径规划演示系统，前端基于 React + MapLibre GL，
-          后端提供用户认证与 MySQL 数据持久化。
+          A drone path planning demo for urban low-altitude scenarios. The frontend uses React + MapLibre GL;
+          the backend provides user authentication and MySQL data persistence.
         </p>
       </section>
 
       <section className="about-content">
         <article className="page-card">
-          <h2>核心功能</h2>
+          <h2>Core Features</h2>
           <ul>
-            <li>地图选点与 GPS 定位，设置起点与终点</li>
-            <li>A* 算法路径规划，生成最短与优化双路径</li>
-            <li>3D 建筑 extrusion 避障可视化</li>
-            <li>实时天气 API 与地图天气动画图层</li>
-            <li>可选用户登录（bcrypt 加密 + JWT 会话）</li>
+            <li>Map point selection and GPS positioning to set start and end points</li>
+            <li>A* path planning with shortest and optimized dual routes</li>
+            <li>3D building extrusion avoidance visualization</li>
+            <li>Real-time weather API and animated weather map layers</li>
+            <li>Optional user login (bcrypt encryption + JWT sessions)</li>
           </ul>
         </article>
 
         <article className="page-card">
-          <h2>技术栈</h2>
+          <h2>Tech Stack</h2>
           <dl className="about-stack">
             <div>
-              <dt>前端</dt>
+              <dt>Frontend</dt>
               <dd>React · TypeScript · Vite · react-map-gl · react-router-dom</dd>
             </div>
             <div>
-              <dt>后端</dt>
+              <dt>Backend</dt>
               <dd>Express · MySQL · bcrypt · JWT</dd>
             </div>
             <div>
-              <dt>地图</dt>
+              <dt>Maps</dt>
               <dd>MapLibre GL · OpenFreeMap</dd>
             </div>
             <div>
-              <dt>天气</dt>
+              <dt>Weather</dt>
               <dd>Open-Meteo API</dd>
             </div>
           </dl>
@@ -49,10 +49,10 @@ export default function AboutPage() {
 
       <div className="page-actions">
         <Link to="/planner" className="btn btn-primary">
-          进入路径规划
+          Open Planner
         </Link>
         <Link to="/" className="btn btn-ghost">
-          返回首页
+          Back to Home
         </Link>
       </div>
     </main>

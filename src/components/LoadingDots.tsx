@@ -5,7 +5,7 @@ interface LoadingDotsProps {
   className?: string
 }
 
-export function LoadingDots({ label = '解析中', className }: LoadingDotsProps) {
+export function LoadingDots({ label = 'Resolving', className }: LoadingDotsProps) {
   const [dotCount, setDotCount] = useState(1)
 
   useEffect(() => {

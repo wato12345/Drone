@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { MapView } from '../components/MapView'
 import { ControlPanel } from '../components/ControlPanel'
+import { KimiChat } from '../components/KimiChat'
 import { PathDetailCard } from '../components/PathDetailCard'
 import { usePathPlanner } from '../hooks/usePathPlanner'
 import { usePlaceNames } from '../hooks/usePlaceNames'
@@ -75,6 +76,7 @@ export default function PlannerPage() {
           noiseRangeM={planner.noiseRangeM}
           showNoiseRange={planner.showNoiseRange}
         />
+        <KimiChat location={planner.start} placeName={placeNames.startName} />
       </main>
     </div>
   )

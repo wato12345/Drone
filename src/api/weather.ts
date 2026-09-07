@@ -36,7 +36,7 @@ export async function fetchWeather(lat: number, lng: number): Promise<WeatherDat
 
   const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`)
   if (!response.ok) {
-    throw new Error('天气数据获取失败')
+    throw new Error('Failed to fetch weather data')
   }
 
   const data = (await response.json()) as OpenMeteoResponse

@@ -4,6 +4,7 @@ import cors from 'cors'
 import express from 'express'
 import { getDatabaseConfig, initDb } from './db/index.js'
 import { createAuthRouter } from './routes/auth.js'
+import { createAgentRouter } from './routes/agent.js'
 import { createGeocodeRouter } from './routes/geocode.js'
 import { createPlanRouter } from './routes/plan.js'
 
@@ -43,10 +44,11 @@ app.get('/api/health', (_req, res) => {
 
 app.use('/api/auth', createAuthRouter({ isProd }))
 app.use('/api/geocode', createGeocodeRouter())
+app.use('/api/agent', createAgentRouter())
 app.use('/api', createPlanRouter())
 
 app.use((_req, res) => {
-  res.status(404).json({ error: '接口不存在' })
+  res.status(404).json({ error: 'Endpoint not found' })
 })
 
 await initDb()

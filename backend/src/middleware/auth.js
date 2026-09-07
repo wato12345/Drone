@@ -17,18 +17,18 @@ export function getTokenFromRequest(req) {
 export async function authMiddleware(req, res, next) {
   const token = getTokenFromRequest(req)
   if (!token) {
-    return res.status(401).json({ error: '未登录' })
+    return res.status(401).json({ error: 'Not signed in' })
   }
 
   try {
     const payload = verifyToken(token)
     const user = await findUserById(payload.sub)
     if (!user) {
-      return res.status(401).json({ error: '用户不存在' })
+      return res.status(401).json({ error: 'User not found' })
     }
     req.user = toPublicUser(user)
     next()
   } catch {
-    return res.status(401).json({ error: '登录已过期，请重新登录' })
+    return res.status(401).json({ error: 'Session expired; please sign in again' })
   }
 }

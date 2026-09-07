@@ -15,39 +15,39 @@ export function PathDetailCard({ path }: PathDetailCardProps) {
       </header>
       <dl>
         <div>
-          <dt>飞行距离</dt>
+          <dt>Flight distance</dt>
           <dd>{metrics.distanceKm} km</dd>
         </div>
         <div>
-          <dt>预估飞行时间</dt>
+          <dt>Estimated flight time</dt>
           <dd>{metrics.estimatedTimeMin} min</dd>
         </div>
         <div>
-          <dt>平均飞行高度</dt>
+          <dt>Average altitude</dt>
           <dd>{metrics.avgAltitudeM} m</dd>
         </div>
         {metrics.is3D && metrics.maxAltitudeM !== undefined && (
           <div>
-            <dt>最高飞行高度</dt>
+            <dt>Maximum altitude</dt>
             <dd>{metrics.maxAltitudeM} m</dd>
           </div>
         )}
         {metrics.is3D && metrics.totalClimbM !== undefined && (
           <div>
-            <dt>累计爬升</dt>
+            <dt>Total climb</dt>
             <dd>{metrics.totalClimbM} m</dd>
           </div>
         )}
         <div>
-          <dt>噪音等级</dt>
+          <dt>Noise level</dt>
           <dd className={`noise-${metrics.noiseLevel}`}>{metrics.noiseLevel}</dd>
         </div>
         <div>
-          <dt>风阻指数</dt>
+          <dt>Wind resistance index</dt>
           <dd>{metrics.windResistance}</dd>
         </div>
         <div>
-          <dt>建筑避障评分</dt>
+          <dt>Building avoidance score</dt>
           <dd>{metrics.buildingAvoidance}</dd>
         </div>
       </dl>

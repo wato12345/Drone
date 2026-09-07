@@ -81,7 +81,7 @@ function noiseIndex(lng: number, lat: number): number {
 }
 
 function windResistance(lng: number, lat: number): number {
-  const windFromEast = Math.max(0, Math.sin((lng - 121.48) * 90))
+  const windFromEast = Math.max(0, Math.sin(lng * 90))
   const gust = Math.abs(Math.sin(lat * 200))
   return windFromEast * 0.7 + gust * 0.3
 }
@@ -237,7 +237,7 @@ function computeMetrics(
   const avgBuilding = buildingSum / coords.length
 
   const noiseLevel: PathMetrics['noiseLevel'] =
-    avgNoise < 0.35 ? '低' : avgNoise < 0.65 ? '中' : '高'
+    avgNoise < 0.35 ? 'Low' : avgNoise < 0.65 ? 'Medium' : 'High'
 
   const cruiseSpeedKmh = optimized ? 42 : 48
   const estimatedTimeMin = (distanceKm / cruiseSpeedKmh) * 60
@@ -293,7 +293,7 @@ export function planPaths(start: LngLat, end: LngLat): {
     paths: [
       {
         id: 'shortest',
-        label: '最短路径',
+        label: 'Shortest path',
         color: '#38bdf8',
         coordinates: shortestCoords,
         altitudes: shortestAltitudes,
@@ -301,7 +301,7 @@ export function planPaths(start: LngLat, end: LngLat): {
       },
       {
         id: 'optimized',
-        label: '智能优化路径',
+        label: 'Optimized path',
         color: '#34d399',
         coordinates: optimizedCoords,
         altitudes: optimizedAltitudes,
@@ -311,5 +311,5 @@ export function planPaths(start: LngLat, end: LngLat): {
   }
 }
 
-export const DEFAULT_START: LngLat = [121.4998, 31.2397]
-export const DEFAULT_END: LngLat = [121.5085, 31.2452]
+export const DEFAULT_START: LngLat = [-73.9855, 40.7484]
+export const DEFAULT_END: LngLat = [-73.9772, 40.7527]

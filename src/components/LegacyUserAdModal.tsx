@@ -14,17 +14,17 @@ export function LegacyUserAdModal({ open, onClose }: LegacyUserAdModalProps) {
   return (
     <div className="ad-modal-backdrop" onClick={onClose}>
       <div className="ad-modal" onClick={(e) => e.stopPropagation()}>
-        <button type="button" className="ad-modal-close" onClick={onClose} aria-label="关闭">
+        <button type="button" className="ad-modal-close" onClick={onClose} aria-label="Close">
           ×
         </button>
-        <p className="ad-modal-tag">赞助推广</p>
+        <p className="ad-modal-tag">Sponsored</p>
         <h2 className="ad-modal-title">{ad.title}</h2>
         <p className="ad-modal-body">{ad.body}</p>
         <button type="button" className="btn btn-primary ad-modal-cta" onClick={onClose}>
           {ad.cta}
         </button>
         <button type="button" className="ad-modal-dismiss" onClick={onClose}>
-          关闭并继续浏览
+          Close and continue
         </button>
       </div>
     </div>

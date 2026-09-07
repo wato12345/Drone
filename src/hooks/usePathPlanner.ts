@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { fetchPlan } from '../api/planner'
 import { useBuildingAvoidance } from '../context/BuildingAvoidanceContext'
 import { useFlightSettings } from '../context/FlightSettingsContext'
@@ -35,31 +35,39 @@ export function usePathPlanner() {
 
   const locateMe = useCallback(() => {
     if (!navigator.geolocation) {
-      setError('当前浏览器不支持定位')
+      setStart(DEFAULT_START)
+      setEnd(DEFAULT_END)
+      setPaths([])
+      setBuildings([])
+      setBuildingCount(0)
+      setPickMode(null)
+      setError(null)
+      setPlanWarning('Location unavailable on this device — using Midtown Manhattan demo points.')
       return
     }
 
     setIsLocating(true)
+    setError(null)
     navigator.geolocation.getCurrentPosition(
       (position) => {
         applyUserLocation(position.coords.longitude, position.coords.latitude)
+        setPlanWarning(null)
         setIsLocating(false)
       },
-      (err) => {
+      () => {
         setIsLocating(false)
-        if (err.code === err.PERMISSION_DENIED) {
-          setError('定位被拒绝，请允许浏览器获取位置或手动选点')
-        } else {
-          setError('定位失败，请手动选点')
-        }
+        setStart(DEFAULT_START)
+        setEnd(DEFAULT_END)
+        setPaths([])
+        setBuildings([])
+        setBuildingCount(0)
+        setPickMode(null)
+        setError(null)
+        setPlanWarning('Location unavailable on this device — using Midtown Manhattan demo points.')
       },
-      { enableHighAccuracy: true, timeout: 10000 },
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 60_000 },
     )
   }, [applyUserLocation])
-
-  useEffect(() => {
-    locateMe()
-  }, [locateMe])
 
   const handleMapClick = useCallback(
     (lngLat: LngLat) => {
@@ -94,7 +102,7 @@ export function usePathPlanner() {
       setBuildingCount(result.buildingCount ?? result.buildings?.length ?? 0)
       setPlanWarning(result.buildingWarning ?? null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : '路径规划失败')
+      setError(err instanceof Error ? err.message : 'Path planning failed')
       setPaths([])
       setBuildings([])
       setBuildingCount(0)
@@ -113,8 +121,15 @@ export function usePathPlanner() {
   }, [])
 
   const resetDemo = useCallback(() => {
-    locateMe()
-  }, [locateMe])
+    setStart(DEFAULT_START)
+    setEnd(DEFAULT_END)
+    setPaths([])
+    setBuildings([])
+    setBuildingCount(0)
+    setPickMode(null)
+    setError(null)
+    setPlanWarning(null)
+  }, [])
 
   return {
     start,
