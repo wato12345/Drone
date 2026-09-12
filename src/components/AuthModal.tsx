@@ -11,6 +11,14 @@ interface AuthModalProps {
 
 const RESEND_COOLDOWN_SEC = 60
 
+function setEnglishValidity(input: HTMLInputElement, message: string) {
+  input.setCustomValidity(input.validity.valid ? '' : message)
+}
+
+function handleEnglishInvalid(event: FormEvent<HTMLInputElement>, message: string) {
+  event.currentTarget.setCustomValidity(message)
+}
+
 export function AuthModal({ open, onClose }: AuthModalProps) {
   const { login, register, isLoading } = useAuth()
   const [mode, setMode] = useState<AuthMode>('login')
@@ -205,7 +213,18 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value)
+                  setEnglishValidity(e.currentTarget, 'Please enter a valid email address')
+                }}
+                onInvalid={(e) =>
+                  handleEnglishInvalid(
+                    e,
+                    e.currentTarget.value.trim()
+                      ? 'Please enter a valid email address'
+                      : 'Please enter your email address',
+                  )
+                }
                 placeholder="name@example.com"
                 autoComplete="email"
                 required={mode !== 'register'}
