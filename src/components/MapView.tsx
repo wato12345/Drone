@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Map, {
   Layer,
   Marker,
@@ -50,6 +50,7 @@ export function MapView({
   onMapClick,
 }: MapViewProps) {
   const mapRef = useRef<MapRef>(null)
+  const [mapReady, setMapReady] = useState(false)
 
   const buildingCollection = useMemo(
     () => ({
@@ -78,7 +79,7 @@ export function MapView({
 
   const fitBounds = useCallback(() => {
     const map = mapRef.current?.getMap()
-    if (!map) return
+    if (!map || !mapReady) return
 
     const points: LngLat[] = [start, end]
     paths.forEach((path) => points.push(...path.coordinates))
@@ -94,7 +95,7 @@ export function MapView({
       ],
       { padding: 80, duration: 900 },
     )
-  }, [start, end, paths])
+  }, [start, end, paths, mapReady])
 
   useEffect(() => {
     fitBounds()
@@ -123,6 +124,7 @@ export function MapView({
           bearing: -18,
         }}
         mapStyle={MAP_STYLE}
+        onLoad={() => setMapReady(true)}
         onClick={handleClick}
         style={{ width: '100%', height: '100%' }}
         cursor={pickMode ? 'crosshair' : 'grab'}

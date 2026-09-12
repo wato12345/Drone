@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { fetchPlan } from '../api/planner'
 import type { BuildingFeature, LngLat, PickMode, PlannedPath } from '../types'
 import { randomNearbyPoint } from '../utils/geo'
+import { getCurrentLngLat, LocationError } from '../utils/geolocation'
 import { DEFAULT_END, DEFAULT_START } from '../utils/pathPlanner'
 
 export function usePathPlanner() {
@@ -14,43 +15,49 @@ export function usePathPlanner() {
   const [isLocating, setIsLocating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const applyUserLocation = useCallback((lng: number, lat: number) => {
-    const userStart: LngLat = [lng, lat]
-    setStart(userStart)
-    setEnd(randomNearbyPoint(userStart))
+  const applyUserLocation = useCallback((lngLat: LngLat) => {
+    setStart(lngLat)
+    setEnd(randomNearbyPoint(lngLat))
     setPaths([])
     setBuildings([])
     setPickMode(null)
     setError(null)
   }, [])
 
-  const locateMe = useCallback(() => {
-    if (!navigator.geolocation) {
-      setError('当前浏览器不支持定位')
-      return
-    }
-
+  const locateMe = useCallback(async () => {
     setIsLocating(true)
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        applyUserLocation(position.coords.longitude, position.coords.latitude)
-        setIsLocating(false)
-      },
-      (err) => {
-        setIsLocating(false)
-        if (err.code === err.PERMISSION_DENIED) {
-          setError('定位被拒绝，请允许浏览器获取位置或手动选点')
-        } else {
-          setError('定位失败，请手动选点')
-        }
-      },
-      { enableHighAccuracy: true, timeout: 10000 },
-    )
+    setError(null)
+
+    try {
+      const lngLat = await getCurrentLngLat()
+      applyUserLocation(lngLat)
+    } catch (err) {
+      setError(err instanceof LocationError || err instanceof Error ? err.message : '定位失败，请手动选点')
+    } finally {
+      setIsLocating(false)
+    }
   }, [applyUserLocation])
 
   useEffect(() => {
-    locateMe()
-  }, [locateMe])
+    let cancelled = false
+
+    const autoLocate = async () => {
+      setIsLocating(true)
+      try {
+        const lngLat = await getCurrentLngLat()
+        if (!cancelled) applyUserLocation(lngLat)
+      } catch {
+        // Keep demo coordinates when auto-locate fails; the user can retry via the button.
+      } finally {
+        if (!cancelled) setIsLocating(false)
+      }
+    }
+
+    void autoLocate()
+    return () => {
+      cancelled = true
+    }
+  }, [applyUserLocation])
 
   const handleMapClick = useCallback(
     (lngLat: LngLat) => {
@@ -89,8 +96,13 @@ export function usePathPlanner() {
   }, [])
 
   const resetDemo = useCallback(() => {
-    locateMe()
-  }, [locateMe])
+    setStart(DEFAULT_START)
+    setEnd(DEFAULT_END)
+    setPaths([])
+    setBuildings([])
+    setPickMode(null)
+    setError(null)
+  }, [])
 
   return {
     start,

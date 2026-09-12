@@ -35,7 +35,9 @@ export default function PlannerPage() {
           onPlan={planner.planPaths}
           onClear={planner.clearAll}
           onResetDemo={planner.resetDemo}
-          onLocateMe={planner.locateMe}
+          onLocateMe={() => {
+            void planner.locateMe()
+          }}
         />
         <div className="path-cards">
           {planner.paths.map((path) => (
