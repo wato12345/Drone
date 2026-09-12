@@ -35,6 +35,34 @@ async function initSchema(database) {
       UNIQUE KEY uk_users_email (email)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `)
+
+  await database.query(`
+    CREATE TABLE IF NOT EXISTS password_reset_codes (
+      id CHAR(36) PRIMARY KEY,
+      user_id CHAR(36) NOT NULL,
+      code_hash VARCHAR(255) NOT NULL,
+      expires_at DATETIME NOT NULL,
+      attempt_count INT NOT NULL DEFAULT 0,
+      used_at DATETIME NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_reset_user (user_id),
+      CONSTRAINT fk_reset_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `)
+
+  // Drop legacy column from earlier draft schema if present
+  const [columns] = await database.query(
+    `
+      SELECT COLUMN_NAME AS name
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'password_reset_codes'
+        AND COLUMN_NAME = 'code_lookup'
+    `,
+  )
+  if (columns.length > 0) {
+    await database.query('ALTER TABLE password_reset_codes DROP COLUMN code_lookup')
+  }
 }
 
 export async function initDb() {
@@ -84,10 +112,89 @@ export async function findUserById(id) {
   return rows[0] ?? null
 }
 
+export async function findUserByEmail(email) {
+  const [rows] = await getDb().query(
+    'SELECT * FROM users WHERE email IS NOT NULL AND LOWER(email) = LOWER(:email) LIMIT 1',
+    { email },
+  )
+  return rows[0] ?? null
+}
+
+export async function updateUserPassword(userId, passwordHash) {
+  await getDb().query('UPDATE users SET password_hash = :passwordHash WHERE id = :userId', {
+    userId,
+    passwordHash,
+  })
+}
+
+export async function invalidatePasswordResetCodes(userId) {
+  await getDb().query(
+    `
+      UPDATE password_reset_codes
+      SET used_at = COALESCE(used_at, UTC_TIMESTAMP())
+      WHERE user_id = :userId AND used_at IS NULL
+    `,
+    { userId },
+  )
+}
+
+export async function createPasswordResetCode({ id, userId, codeHash, expiresAt }) {
+  await getDb().query(
+    `
+      INSERT INTO password_reset_codes
+        (id, user_id, code_hash, expires_at, attempt_count, used_at, created_at)
+      VALUES
+        (:id, :userId, :codeHash, :expiresAt, 0, NULL, UTC_TIMESTAMP())
+    `,
+    {
+      id,
+      userId,
+      codeHash,
+      expiresAt: toMySqlUtcDateTime(expiresAt),
+    },
+  )
+}
+
+export async function findActivePasswordResetCode(userId) {
+  const [rows] = await getDb().query(
+    `
+      SELECT *
+      FROM password_reset_codes
+      WHERE user_id = :userId
+        AND used_at IS NULL
+        AND expires_at > UTC_TIMESTAMP()
+      ORDER BY created_at DESC
+      LIMIT 1
+    `,
+    { userId },
+  )
+  return rows[0] ?? null
+}
+
+export async function incrementPasswordResetAttempts(id) {
+  await getDb().query(
+    'UPDATE password_reset_codes SET attempt_count = attempt_count + 1 WHERE id = :id',
+    { id },
+  )
+}
+
+export async function markPasswordResetCodeUsed(id) {
+  await getDb().query(
+    'UPDATE password_reset_codes SET used_at = UTC_TIMESTAMP() WHERE id = :id',
+    { id },
+  )
+}
+
 function toMySqlDateTime(value) {
   if (value instanceof Date) return value
   if (typeof value === 'string') return new Date(value)
   return new Date()
+}
+
+/** Store timestamps in UTC so they compare correctly with UTC_TIMESTAMP(). */
+function toMySqlUtcDateTime(value) {
+  const date = value instanceof Date ? value : new Date(value ?? Date.now())
+  return date.toISOString().slice(0, 19).replace('T', ' ')
 }
 
 export async function createUser({ id, username, email, passwordHash, createdAt }) {

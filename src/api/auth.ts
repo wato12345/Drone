@@ -59,3 +59,25 @@ export async function fetchCurrentUser(): Promise<AuthUser | null> {
   const data = await parseJson<AuthResponse>(response)
   return data.user
 }
+
+export async function requestPasswordReset(email: string): Promise<{ ok: boolean; message: string }> {
+  const response = await fetch(`${API_BASE}/auth/forgot-password`, {
+    ...fetchOptions,
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  })
+  return parseJson<{ ok: boolean; message: string }>(response)
+}
+
+export async function resetPassword(input: {
+  email: string
+  code: string
+  password: string
+}): Promise<{ ok: boolean; message: string }> {
+  const response = await fetch(`${API_BASE}/auth/reset-password`, {
+    ...fetchOptions,
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  return parseJson<{ ok: boolean; message: string }>(response)
+}
