@@ -53,7 +53,7 @@ function generateCode() {
 }
 
 /**
- * Always returns a generic success payload so callers cannot enumerate emails.
+ * Send a password-reset code only when the email belongs to an existing account.
  */
 export async function requestPasswordResetCode({ email, clientKey }) {
   const emailError = validateEmailRequired(email)
@@ -64,19 +64,18 @@ export async function requestPasswordResetCode({ email, clientKey }) {
   }
 
   const normalized = normalizeEmail(email)
+  const user = await findUserByEmail(normalized)
+  if (!user) {
+    const err = new Error('This email is not registered. Please check it or create an account first.')
+    err.status = 404
+    throw err
+  }
+
   const rateError = checkForgotRateLimit(`${clientKey || 'anon'}:${normalized}`)
   if (rateError) {
     const err = new Error(rateError)
     err.status = 429
     throw err
-  }
-
-  const user = await findUserByEmail(normalized)
-  if (!user) {
-    return {
-      ok: true,
-      message: 'If that email is registered, a verification code has been sent.',
-    }
   }
 
   const code = generateCode()
@@ -99,7 +98,7 @@ export async function requestPasswordResetCode({ email, clientKey }) {
 
   return {
     ok: true,
-    message: 'If that email is registered, a verification code has been sent.',
+    message: 'Verification code sent. Check your inbox (and spam folder).',
   }
 }
 

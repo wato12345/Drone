@@ -213,7 +213,9 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
                 className={mode === 'reset' ? 'is-readonly' : undefined}
               />
               {mode === 'forgot' && (
-                <small className="auth-hint">Use the email linked to your account.</small>
+                <small className="auth-hint">
+                  Must match the email on your account. Unregistered emails will not receive a code.
+                </small>
               )}
               {mode === 'reset' && (
                 <small className="auth-hint">Code sent to this address. Check spam if needed.</small>
