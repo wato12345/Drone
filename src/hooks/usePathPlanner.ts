@@ -1,10 +1,11 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { fetchPlan } from '../api/planner'
 import { useBuildingAvoidance } from '../context/BuildingAvoidanceContext'
 import { useFlightSettings } from '../context/FlightSettingsContext'
 import type { BuildingFeature, LngLat, PickMode, PlannedPath } from '../types'
 import type { DroneModel } from '../data/droneModels'
 import { randomNearbyPoint } from '../utils/geo'
+import { getCurrentLngLat, LocationError } from '../utils/geolocation'
 import { DEFAULT_END, DEFAULT_START } from '../utils/pathPlanner'
 
 export function usePathPlanner() {
@@ -22,51 +23,60 @@ export function usePathPlanner() {
   const [isLocating, setIsLocating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const applyUserLocation = useCallback((lng: number, lat: number) => {
-    const userStart: LngLat = [lng, lat]
-    setStart(userStart)
-    setEnd(randomNearbyPoint(userStart))
+  const applyUserLocation = useCallback((lngLat: LngLat) => {
+    setStart(lngLat)
+    setEnd(randomNearbyPoint(lngLat))
     setPaths([])
     setBuildings([])
     setBuildingCount(0)
     setPickMode(null)
     setError(null)
+    setPlanWarning(null)
   }, [])
 
-  const locateMe = useCallback(() => {
-    if (!navigator.geolocation) {
-      setStart(DEFAULT_START)
-      setEnd(DEFAULT_END)
-      setPaths([])
-      setBuildings([])
-      setBuildingCount(0)
-      setPickMode(null)
-      setError(null)
-      setPlanWarning('Location unavailable on this device — using Midtown Manhattan demo points.')
-      return
-    }
-
+  const locateMe = useCallback(async () => {
     setIsLocating(true)
     setError(null)
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        applyUserLocation(position.coords.longitude, position.coords.latitude)
-        setPlanWarning(null)
-        setIsLocating(false)
-      },
-      () => {
-        setIsLocating(false)
-        setStart(DEFAULT_START)
-        setEnd(DEFAULT_END)
-        setPaths([])
-        setBuildings([])
-        setBuildingCount(0)
-        setPickMode(null)
-        setError(null)
-        setPlanWarning('Location unavailable on this device — using Midtown Manhattan demo points.')
-      },
-      { enableHighAccuracy: false, timeout: 8000, maximumAge: 60_000 },
-    )
+
+    try {
+      const lngLat = await getCurrentLngLat()
+      applyUserLocation(lngLat)
+    } catch (err) {
+      const message =
+        err instanceof LocationError || err instanceof Error
+          ? err.message
+          : 'Could not get your location. Pick a start point on the map instead.'
+      setPlanWarning(message)
+    } finally {
+      setIsLocating(false)
+    }
+  }, [applyUserLocation])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const autoLocate = async () => {
+      setIsLocating(true)
+      try {
+        const lngLat = await getCurrentLngLat()
+        if (!cancelled) applyUserLocation(lngLat)
+      } catch (err) {
+        if (!cancelled) {
+          const message =
+            err instanceof LocationError || err instanceof Error
+              ? err.message
+              : 'Location unavailable — using Midtown Manhattan demo points. Tap Locate me to retry.'
+          setPlanWarning(message)
+        }
+      } finally {
+        if (!cancelled) setIsLocating(false)
+      }
+    }
+
+    void autoLocate()
+    return () => {
+      cancelled = true
+    }
   }, [applyUserLocation])
 
   const handleMapClick = useCallback(
