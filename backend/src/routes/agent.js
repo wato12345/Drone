@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { getMoonshotConfig } from '../services/moonshot.js'
 import { runAirspaceAgent } from '../services/airspaceAgent.js'
+import { runDroneAgent } from '../services/droneAgent.js'
 
 function parseLocation(body = {}) {
   const lat = body.lat !== undefined ? Number(body.lat) : Number(body.latitude)
@@ -33,6 +34,42 @@ export function createAgentRouter() {
       model: config.model,
       apiBase: config.apiBase,
     })
+  })
+
+  /**
+   * POST /api/agent/chat
+   * Tool-using drone agent: resolve_place / get_weather / check_airspace / plan_route
+   * body: { message, lat?, lng?, placeName? }
+   */
+  router.post('/chat', async (req, res) => {
+    const config = getMoonshotConfig()
+    if (!config.configured) {
+      return res.status(503).json({ error: 'Agent is not configured: MOONSHOT_API_KEY missing' })
+    }
+
+    const input = parseLocation(req.body)
+    if (!input.message) {
+      return res.status(400).json({ error: 'Please provide a message' })
+    }
+
+    try {
+      const result = await runDroneAgent(input)
+      res.json({
+        ok: result.ok,
+        reply: result.reply,
+        error: result.error ?? null,
+        steps: result.steps,
+        model: result.model,
+        usage: result.usage,
+        truncated: result.truncated === true,
+      })
+    } catch (err) {
+      console.error('Drone agent error:', err)
+      const status = Number.isFinite(err?.status) ? err.status : 502
+      res.status(status >= 400 && status < 600 ? status : 502).json({
+        error: err instanceof Error ? err.message : 'Agent request failed',
+      })
+    }
   })
 
   /**

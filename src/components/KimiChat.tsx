@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { queryAirspaceAgent, type AirspaceResult } from '../api/agent'
+import { queryAgentChat } from '../api/agent'
 import type { LngLat } from '../types'
 
 interface KimiChatProps {
@@ -11,46 +11,6 @@ interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   text: string
-  airspace?: AirspaceResult | null
-}
-
-function formatAirspace(airspace: AirspaceResult): string {
-  const canFly =
-    airspace.canFlyLabel ||
-    (airspace.canFly === true ? 'Can fly' : airspace.canFly === false ? 'Cannot fly' : 'Uncertain')
-  const docs =
-    airspace.documents?.filter(Boolean).slice(0, 4) ??
-    [
-      'FAA TRUST or Part 107 certificate',
-      'FAA drone registration',
-      'Remote ID compliance',
-      'B4UFLY / LAANC check',
-    ]
-
-  return [
-    airspace.locationName ? `Location: ${airspace.locationName}` : null,
-    `Can fly: ${canFly}`,
-    `Airspace type: ${airspace.airspaceType || 'Uncertain'}`,
-    `Authorization: ${
-      airspace.permitRequired === false
-        ? 'Generally not required (still verify locally)'
-        : 'Authorization / LAANC may be required'
-    }`,
-    `Risk: ${airspace.riskLevel || 'Unknown'}`,
-    `Required documents: ${docs.join(', ')}`,
-    airspace.summary ? `Summary: ${airspace.summary}` : null,
-    airspace.restrictions?.length
-      ? `Key restrictions:\n${airspace.restrictions
-          .slice(0, 4)
-          .map((item) => `- ${item.title || item.type || 'Restriction'}: ${item.description || ''}`)
-          .join('\n')}`
-      : null,
-    airspace.checklist?.length
-      ? `Checklist:\n${airspace.checklist.slice(0, 5).map((item) => `- ${item}`).join('\n')}`
-      : null,
-  ]
-    .filter(Boolean)
-    .join('\n')
 }
 
 export function KimiChat({ location, placeName }: KimiChatProps) {
@@ -61,7 +21,7 @@ export function KimiChat({ location, placeName }: KimiChatProps) {
     {
       id: 'welcome',
       role: 'assistant',
-      text: 'Ask about airspace restrictions. For US locations I cover FAA Part 107, LAANC, B4UFLY, airports, and Remote ID.',
+      text: '可以问风速、空域或航线。我会按需要调用工具：解析地名 → 天气 → 空域 → 规划。',
     },
   ])
   const listRef = useRef<HTMLDivElement>(null)
@@ -87,29 +47,19 @@ export function KimiChat({ location, placeName }: KimiChatProps) {
 
     try {
       const [lng, lat] = location
-      const result = await queryAirspaceAgent({
+      const result = await queryAgentChat({
         lat,
         lng,
         placeName: placeName || undefined,
         message,
       })
 
-      let text: string
-      if (result.intent !== 'airspace_restrictions') {
-        text = `Current intent: ${result.intent}. I mainly answer airspace restrictions — try asking "Can I fly here?" or "What no-fly zones are nearby?"`
-      } else if (result.airspace) {
-        text = formatAirspace(result.airspace)
-      } else {
-        text = result.reason || 'No airspace data returned. Try rephrasing your question.'
-      }
-
       setMessages((prev) => [
         ...prev,
         {
           id: `a-${Date.now()}`,
           role: 'assistant',
-          text,
-          airspace: result.airspace,
+          text: result.reply || result.error || '无回复',
         },
       ])
     } catch (err) {
@@ -134,10 +84,10 @@ export function KimiChat({ location, placeName }: KimiChatProps) {
   return (
     <div className={`kimi-chat ${open ? 'open' : ''}`}>
       {open && (
-        <div className="kimi-panel" role="dialog" aria-label="Kimi Airspace Assistant">
+        <div className="kimi-panel" role="dialog" aria-label="Kimi Assistant">
           <div className="kimi-panel-header">
             <div>
-              <strong>Kimi Airspace Assistant</strong>
+              <strong>Kimi 助手</strong>
               <span>{placeName || 'Near current start point'}</span>
             </div>
             <button type="button" className="kimi-close" onClick={() => setOpen(false)} aria-label="Close">
@@ -152,16 +102,20 @@ export function KimiChat({ location, placeName }: KimiChatProps) {
               </div>
             ))}
             {sending && (
-              <div className="kimi-bubble assistant kimi-typing">Checking airspace…</div>
+              <div className="kimi-bubble assistant kimi-typing">Thinking…</div>
             )}
           </div>
 
           <div className="kimi-quick">
-            <button type="button" disabled={sending} onClick={() => void sendMessage('Can I fly a drone here under FAA rules?')}>
-              Can I fly?
+            <button type="button" disabled={sending} onClick={() => void sendMessage('现在风速怎么样？能不能飞？')}>
+              风速
             </button>
-            <button type="button" disabled={sending} onClick={() => void sendMessage('What FAA airspace class, airports, and LAANC requirements apply here?')}>
-              FAA / LAANC
+            <button
+              type="button"
+              disabled={sending}
+              onClick={() => void sendMessage('规划一条避开高楼的航线到附近合适地点')}
+            >
+              航线
             </button>
           </div>
 
@@ -169,7 +123,7 @@ export function KimiChat({ location, placeName }: KimiChatProps) {
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask about airspace restrictions…"
+              placeholder="问风速 / 空域 / 航线…"
               disabled={sending}
               maxLength={500}
             />

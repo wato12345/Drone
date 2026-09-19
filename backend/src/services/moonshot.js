@@ -13,9 +13,15 @@ export function getMoonshotConfig() {
 
 /**
  * Call Moonshot OpenAI-compatible chat completions API.
- * @param {{ messages: Array<{role: string, content: string}>, temperature?: number, responseFormat?: 'json_object' | 'text' }} options
+ * Supports optional tools / tool_choice for agent loops.
  */
-export async function moonshotChat({ messages, temperature, responseFormat = 'json_object' }) {
+export async function moonshotChat({
+  messages,
+  temperature,
+  responseFormat,
+  tools,
+  toolChoice,
+}) {
   const { apiKey, apiBase, model, configured } = getMoonshotConfig()
   if (!configured) {
     throw new Error('MOONSHOT_API_KEY is not configured')
@@ -30,8 +36,13 @@ export async function moonshotChat({ messages, temperature, responseFormat = 'js
     messages,
     temperature: resolvedTemperature,
   }
+
   if (responseFormat === 'json_object') {
     body.response_format = { type: 'json_object' }
+  }
+  if (Array.isArray(tools) && tools.length > 0) {
+    body.tools = tools
+    body.tool_choice = toolChoice ?? 'auto'
   }
 
   const response = await fetch(`${apiBase}/chat/completions`, {
@@ -56,13 +67,20 @@ export async function moonshotChat({ messages, temperature, responseFormat = 'js
     throw err
   }
 
-  const content = data?.choices?.[0]?.message?.content
-  if (typeof content !== 'string' || !content.trim()) {
-    throw new Error('Moonshot returned empty content')
+  const choice = data?.choices?.[0]
+  const message = choice?.message
+  if (!message) {
+    throw new Error('Moonshot returned empty message')
   }
 
+  const content = typeof message.content === 'string' ? message.content.trim() : ''
+  const toolCalls = Array.isArray(message.tool_calls) ? message.tool_calls : []
+
   return {
-    content: content.trim(),
+    content,
+    message,
+    toolCalls,
+    finishReason: choice?.finish_reason ?? null,
     model: data?.model ?? model,
     usage: data?.usage ?? null,
   }

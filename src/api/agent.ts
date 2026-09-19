@@ -45,6 +45,28 @@ export interface AgentAirspaceRequest {
   forceAirspace?: boolean
 }
 
+export interface AgentChatRequest {
+  message: string
+  lat?: number
+  lng?: number
+  placeName?: string
+}
+
+export interface AgentChatStep {
+  tool: string
+  args: Record<string, unknown>
+  result: unknown
+}
+
+export interface AgentChatResponse {
+  ok: boolean
+  reply: string
+  error?: string | null
+  steps?: AgentChatStep[]
+  model?: string | null
+  truncated?: boolean
+}
+
 async function parseJson<T>(response: Response): Promise<T> {
   const data = await response.json()
   if (!response.ok) {
@@ -63,4 +85,13 @@ export async function queryAirspaceAgent(
     body: JSON.stringify(body),
   })
   return parseJson<AgentAirspaceResponse>(response)
+}
+
+export async function queryAgentChat(body: AgentChatRequest): Promise<AgentChatResponse> {
+  const response = await fetch(`${API_BASE}/agent/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  return parseJson<AgentChatResponse>(response)
 }
