@@ -11,12 +11,16 @@ interface AuthModalProps {
 
 const RESEND_COOLDOWN_SEC = 60
 
-function setEnglishValidity(input: HTMLInputElement, message: string) {
-  input.setCustomValidity(input.validity.valid ? '' : message)
-}
-
-function handleEnglishInvalid(event: FormEvent<HTMLInputElement>, message: string) {
-  event.currentTarget.setCustomValidity(message)
+function applyEnglishEmailValidity(input: HTMLInputElement) {
+  // Clear first — a previous customError makes validity.valid stay false forever.
+  input.setCustomValidity('')
+  if (input.validity.valueMissing) {
+    input.setCustomValidity('Please enter your email address')
+    return
+  }
+  if (input.validity.typeMismatch || input.validity.patternMismatch) {
+    input.setCustomValidity('Please enter a valid email address')
+  }
 }
 
 export function AuthModal({ open, onClose }: AuthModalProps) {
@@ -141,7 +145,7 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
           : 'Update password'
 
   return (
-    <div className="auth-modal-backdrop" onClick={onClose}>
+    <div className="auth-modal-backdrop">
       <div className="auth-card auth-modal" onClick={(e) => e.stopPropagation()}>
         <button type="button" className="auth-close" onClick={onClose} aria-label="Close">
           ×
@@ -214,17 +218,13 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
                 type="email"
                 value={email}
                 onChange={(e) => {
-                  setEmail(e.target.value)
-                  setEnglishValidity(e.currentTarget, 'Please enter a valid email address')
+                  // Trim so trailing spaces don't fail HTML email validation.
+                  const next = e.target.value.trim()
+                  setEmail(next)
+                  e.currentTarget.value = next
+                  applyEnglishEmailValidity(e.currentTarget)
                 }}
-                onInvalid={(e) =>
-                  handleEnglishInvalid(
-                    e,
-                    e.currentTarget.value.trim()
-                      ? 'Please enter a valid email address'
-                      : 'Please enter your email address',
-                  )
-                }
+                onInvalid={(e) => applyEnglishEmailValidity(e.currentTarget)}
                 placeholder="name@example.com"
                 autoComplete="email"
                 required={mode !== 'register'}
