@@ -63,6 +63,15 @@ async function initSchema(database) {
   if (columns.length > 0) {
     await database.query('ALTER TABLE password_reset_codes DROP COLUMN code_lookup')
   }
+
+  await database.query(`
+    CREATE TABLE IF NOT EXISTS agent_chats (
+      user_id CHAR(36) PRIMARY KEY,
+      messages_json LONGTEXT NOT NULL,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      CONSTRAINT fk_agent_chat_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `)
 }
 
 export async function initDb() {
@@ -227,4 +236,31 @@ export async function createUser({ id, username, email, passwordHash, createdAt 
 export async function listUsers() {
   const [rows] = await getDb().query('SELECT * FROM users ORDER BY created_at ASC')
   return rows
+}
+
+export async function getAgentChat(userId) {
+  const [rows] = await getDb().query(
+    'SELECT messages_json FROM agent_chats WHERE user_id = :userId LIMIT 1',
+    { userId },
+  )
+  const raw = rows[0]?.messages_json
+  if (!raw) return []
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+export async function saveAgentChat(userId, messages) {
+  const messagesJson = JSON.stringify(messages)
+  await getDb().query(
+    `
+      INSERT INTO agent_chats (user_id, messages_json)
+      VALUES (:userId, :messagesJson)
+      ON DUPLICATE KEY UPDATE messages_json = VALUES(messages_json)
+    `,
+    { userId, messagesJson },
+  )
 }

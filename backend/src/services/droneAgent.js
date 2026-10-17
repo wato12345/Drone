@@ -4,6 +4,7 @@ import {
   executeAgentTool,
   extractToolError,
 } from './agentTools.js'
+import { describeWorkflowNode, summarizeToolResult } from './agentWorkflow.js'
 
 const MAX_TOOL_STEPS = 5
 
@@ -11,18 +12,19 @@ const SYSTEM_PROMPT = `你是无人机飞行助手。你可以通过工具获取
 
 可用工具（每个只做一件事）：
 1. resolve_place(name) — 地名→坐标；不认识返回 error「未知地点」，禁止猜坐标
-2. get_weather(lng, lat) — 返回风速 windSpeed 与 canFly（风速<10 为 true）；坐标非法返回 error
+2. get_weather(lng, lat) — 返回风速 windSpeed 与 canFly（风速 < 40 km/h 为 true，40 km/h 及以上不能飞）；坐标非法返回 error
 3. check_airspace(startLng, startLat, endLng, endLat) — 返回 closed；不查天气
 4. plan_route(startLng, startLat, endLng, endLat, avoidBuildings) — 返回 distance、time、coordinates；avoidBuildings=true 时只要绕开高楼的那条
 
 编排规则（由你根据上一步工具结果决定下一步，不要当成写死脚本机械执行）：
-- 用户只问风/风速/天气适飞：只调用 get_weather（若缺坐标可先 resolve_place）
-- 用户要路线/怎么飞：先 resolve_place（起终点），再 get_weather；若 canFly 为 false 则停止并说明不能飞；再 check_airspace，若 closed 为 true 则停止并说明空域关闭；最后才 plan_route
-- 用户要求「起飞 / 现在起飞 / take off」：不要调用任何工具，直接回复不能起飞
-- 工具结果含 error 或 ok:false：把 error 原文告诉用户，不要改写、不要继续瞎猜
-- 回答简洁，用中文；汇报工具得到的核心数字即可
-
-上下文里可能附带当前地图起点坐标，可直接用于 get_weather，无需重复解析。`
+- 用户消息里会附带当前地图的起点和终点坐标。用户没有另外指定新地点时，直接用这些坐标，不要再 resolve_place。
+- 用户只问风/风速/天气适飞：只用起点坐标调用 get_weather。
+- 用户要路线/怎么飞：直接用当前起点和终点。先 get_weather（起点）；若 canFly 为 false 则停止并说明不能飞；再 check_airspace，若 closed 为 true 则停止并说明空域关闭；最后才 plan_route。
+- 只有用户明确说出新的地名（且不是当前已给的起点/终点名称）时，才 resolve_place，再用解析出的坐标替换对应端点。
+- 用户要求「起飞 / 现在起飞 / take off」：不要调用任何工具，直接回复不能起飞。
+- 工具结果含 error 或 ok:false：把 error 原文告诉用户，不要改写、不要继续瞎猜。
+- 回答简洁，用中文 Markdown（可用加粗和列表），不要把 Markdown 源码当纯文本堆砌。
+- 用户消息之前可能附带更早的对话。请接着上下文回答；用户没有重新提出路线、天气或起飞时，不要重复执行已经完成的工具。`
 
 function parseToolArgs(raw) {
   if (raw == null || raw === '') return {}
@@ -34,108 +36,256 @@ function parseToolArgs(raw) {
   }
 }
 
-function buildUserContent({ message, lat, lng, placeName }) {
+function formatPoint(label, lng, lat, name) {
+  const hasCoord = Number.isFinite(lng) && Number.isFinite(lat)
+  if (!hasCoord && !name) return null
+  const bits = []
+  if (name) bits.push(name)
+  if (hasCoord) bits.push(`lng=${lng}, lat=${lat}`)
+  return `${label}：${bits.join('，')}`
+}
+
+function buildUserContent({
+  message,
+  lat,
+  lng,
+  placeName,
+  endLat,
+  endLng,
+  endPlaceName,
+}) {
   const parts = [message || '']
-  if (placeName) parts.push(`当前地点名称：${placeName}`)
-  if (Number.isFinite(lat) && Number.isFinite(lng)) {
-    parts.push(`当前地图起点坐标：lng=${lng}, lat=${lat}`)
+  const startLine = formatPoint('当前地图起点', lng, lat, placeName)
+  const endLine = formatPoint('当前地图终点', endLng, endLat, endPlaceName)
+  if (startLine) parts.push(startLine)
+  if (endLine) parts.push(endLine)
+  if (startLine || endLine) {
+    parts.push('以上是地图上的当前起终点。未另外指定地点时，直接使用这些坐标。')
   }
   return parts.filter(Boolean).join('\n')
+}
+
+function normalizeHistory(history) {
+  if (!Array.isArray(history)) return []
+  return history
+    .filter(
+      (item) =>
+        item &&
+        (item.role === 'user' || item.role === 'assistant') &&
+        typeof item.content === 'string' &&
+        item.content.trim(),
+    )
+    .slice(-12)
+    .map((item) => ({
+      role: item.role,
+      content: item.content.trim().slice(0, 2000),
+    }))
+}
+
+function createWorkflowEmitter(onEvent) {
+  let seq = 0
+  const startedAt = Date.now()
+
+  const emit = (event, data) => {
+    onEvent?.({ event, ...data, elapsedMs: Date.now() - startedAt })
+  }
+
+  const openNode = (key) => {
+    const meta = describeWorkflowNode(key)
+    const id = `${key}-${++seq}`
+    const started = Date.now()
+    emit('node_started', {
+      id,
+      nodeType: meta.type,
+      title: meta.title,
+      tool: meta.type === 'tool' ? key : undefined,
+      status: 'running',
+    })
+    return {
+      finish(status, extra = {}) {
+        emit('node_finished', {
+          id,
+          nodeType: meta.type,
+          title: meta.title,
+          tool: meta.type === 'tool' ? key : undefined,
+          status,
+          nodeElapsedMs: Date.now() - started,
+          ...extra,
+        })
+      },
+    }
+  }
+
+  return { emit, openNode, startedAt }
 }
 
 /**
  * Model-driven agent loop with tool calling (max 5 tool steps).
  * Not a hardcoded pipeline — the model chooses tools from prior results.
+ * Optional onEvent streams Dify-style node_started / node_finished updates.
  */
-export async function runDroneAgent({ message, lat, lng, placeName }) {
+export async function runDroneAgent({
+  message,
+  lat,
+  lng,
+  placeName,
+  endLat,
+  endLng,
+  endPlaceName,
+  history = [],
+  onEvent,
+}) {
+  const prior = normalizeHistory(history)
   const messages = [
     { role: 'system', content: SYSTEM_PROMPT },
-    { role: 'user', content: buildUserContent({ message, lat, lng, placeName }) },
+    ...prior,
+    {
+      role: 'user',
+      content: buildUserContent({ message, lat, lng, placeName, endLat, endLng, endPlaceName }),
+    },
   ]
 
   const steps = []
   let model = null
   let lastUsage = null
+  let activeNode = null
+  const workflow = createWorkflowEmitter(onEvent)
 
-  for (let step = 0; step < MAX_TOOL_STEPS; step++) {
-    const result = await moonshotChat({
-      messages,
-      tools: AGENT_TOOL_DEFINITIONS,
-      toolChoice: 'auto',
-      responseFormat: 'text',
-    })
+  workflow.emit('workflow_started', { status: 'running' })
+  const startNode = workflow.openNode('start')
+  startNode.finish('succeeded', { detail: '已接收问题' })
 
-    model = result.model
-    lastUsage = result.usage
+  const finishWorkflow = (payload) => {
+    workflow.emit('workflow_finished', payload)
+    return payload
+  }
 
-    if (!result.toolCalls.length) {
-      return {
-        ok: true,
-        reply: result.content || '完成。',
-        steps,
-        model,
-        usage: lastUsage,
-      }
-    }
-
-    // Append the full assistant message (required for tool_calls continuity)
-    messages.push({
-      role: 'assistant',
-      content: result.message.content ?? null,
-      tool_calls: result.toolCalls,
-    })
-
-    for (const toolCall of result.toolCalls) {
-      const name = toolCall?.function?.name
-      const args = parseToolArgs(toolCall?.function?.arguments)
-      const toolResult = await executeAgentTool(name, args)
-      const toolError = extractToolError(toolResult)
-
-      steps.push({
-        tool: name,
-        args,
-        result: toolResult,
+  try {
+    for (let step = 0; step < MAX_TOOL_STEPS; step++) {
+      const llmNode = workflow.openNode('llm')
+      activeNode = llmNode
+      const result = await moonshotChat({
+        messages,
+        tools: AGENT_TOOL_DEFINITIONS,
+        toolChoice: 'auto',
+        responseFormat: 'text',
       })
 
-      messages.push({
-        role: 'tool',
-        tool_call_id: toolCall.id,
-        name,
-        content: JSON.stringify(toolResult),
-      })
+      model = result.model
+      lastUsage = result.usage
 
-      // On tool failure: surface error as-is (within ≤5 steps)
-      if (toolError) {
-        return {
-          ok: false,
-          reply: toolError,
-          error: toolError,
+      if (!result.toolCalls.length) {
+        llmNode.finish('succeeded', { detail: '生成回复' })
+        activeNode = null
+        const answerNode = workflow.openNode('answer')
+        const reply = result.content || '完成。'
+        answerNode.finish('succeeded')
+        return finishWorkflow({
+          ok: true,
+          reply,
           steps,
           model,
           usage: lastUsage,
+          status: 'succeeded',
+        })
+      }
+
+      const nextTools = result.toolCalls
+        .map((call) => describeWorkflowNode(call?.function?.name).title)
+        .filter(Boolean)
+      llmNode.finish('succeeded', { detail: nextTools.length ? `下一步：${nextTools.join('、')}` : '调用工具' })
+      activeNode = null
+
+      messages.push({
+        role: 'assistant',
+        content: result.message.content ?? null,
+        tool_calls: result.toolCalls,
+      })
+
+      for (const toolCall of result.toolCalls) {
+        const name = toolCall?.function?.name
+        const args = parseToolArgs(toolCall?.function?.arguments)
+        const toolNode = workflow.openNode(name || 'tool')
+        activeNode = toolNode
+        const toolResult = await executeAgentTool(name, args)
+        const toolError = extractToolError(toolResult)
+
+        steps.push({
+          tool: name,
+          args,
+          result: toolResult,
+        })
+
+        toolNode.finish(toolError ? 'failed' : 'succeeded', {
+          detail: summarizeToolResult(name, toolResult),
+          args,
+          result: toolResult,
+        })
+        activeNode = null
+
+        messages.push({
+          role: 'tool',
+          tool_call_id: toolCall.id,
+          name,
+          content: JSON.stringify(toolResult),
+        })
+
+        if (toolError) {
+          const answerNode = workflow.openNode('answer')
+          answerNode.finish('failed', { detail: toolError })
+          return finishWorkflow({
+            ok: false,
+            reply: toolError,
+            error: toolError,
+            steps,
+            model,
+            usage: lastUsage,
+            status: 'failed',
+          })
         }
       }
     }
-  }
 
-  // Hit max steps while still requesting tools — ask model for a final text reply without tools
-  const final = await moonshotChat({
-    messages: [
-      ...messages,
-      {
-        role: 'user',
-        content: '已达到工具调用上限。请根据已有结果，用一两句话给出最终答复；若有 error 请原样转告。',
-      },
-    ],
-    responseFormat: 'text',
-  })
+    const llmNode = workflow.openNode('llm')
+    activeNode = llmNode
+    const final = await moonshotChat({
+      messages: [
+        ...messages,
+        {
+          role: 'user',
+          content: '已达到工具调用上限。请根据已有结果，用一两句话给出最终答复；若有 error 请原样转告。',
+        },
+      ],
+      responseFormat: 'text',
+    })
+    llmNode.finish('succeeded', { detail: '生成回复' })
+    activeNode = null
+    const answerNode = workflow.openNode('answer')
+    const reply = final.content || '步骤已达上限，请简化问题后重试。'
+    answerNode.finish('succeeded')
 
-  return {
-    ok: true,
-    reply: final.content || '步骤已达上限，请简化问题后重试。',
-    steps,
-    model: final.model ?? model,
-    usage: final.usage ?? lastUsage,
-    truncated: true,
+    return finishWorkflow({
+      ok: true,
+      reply,
+      steps,
+      model: final.model ?? model,
+      usage: final.usage ?? lastUsage,
+      truncated: true,
+      status: 'succeeded',
+    })
+  } catch (err) {
+    const messageText = err instanceof Error ? err.message : 'Agent request failed'
+    activeNode?.finish('failed', { detail: messageText })
+    activeNode = null
+    workflow.emit('workflow_finished', {
+      ok: false,
+      reply: messageText,
+      error: messageText,
+      steps,
+      model,
+      usage: lastUsage,
+      status: 'failed',
+    })
+    throw err
   }
 }

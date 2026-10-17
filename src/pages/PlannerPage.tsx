@@ -75,10 +75,18 @@ export default function PlannerPage() {
           onToggleWeatherLayer={() => weather.setShowLayer((v) => !v)}
           onRefreshWeather={weather.refresh}
           onMapClick={planner.handleMapClick}
+          onSetStart={planner.setStartPoint}
+          onSetEnd={planner.setEndPoint}
           noiseRangeM={planner.noiseRangeM}
           showNoiseRange={planner.showNoiseRange}
         />
-        <KimiChat location={planner.start} placeName={placeNames.startName} />
+        <KimiChat
+          start={planner.start}
+          end={planner.end}
+          startPlaceName={placeNames.startName}
+          endPlaceName={placeNames.endName}
+          onRoute={planner.applyAgentRoute}
+        />
       </main>
     </div>
   )

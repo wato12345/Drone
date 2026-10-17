@@ -5,6 +5,13 @@ export interface GeocodeResult {
   displayName: string
 }
 
+export interface PlaceSearchResult {
+  name: string
+  displayName: string
+  lng: number
+  lat: number
+}
+
 async function parseJson<T>(response: Response): Promise<T> {
   const data = await response.json()
   if (!response.ok) {
@@ -21,4 +28,11 @@ export async function fetchReverseGeocode(lat: number, lng: number): Promise<Geo
   })
   const response = await fetch(`${API_BASE}/geocode/reverse?${params}`)
   return parseJson<GeocodeResult>(response)
+}
+
+export async function fetchPlaceSearch(query: string): Promise<PlaceSearchResult[]> {
+  const params = new URLSearchParams({ q: query })
+  const response = await fetch(`${API_BASE}/geocode/search?${params}`)
+  const data = await parseJson<{ results: PlaceSearchResult[] }>(response)
+  return Array.isArray(data.results) ? data.results : []
 }

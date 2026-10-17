@@ -13,6 +13,7 @@ import type { WeatherCondition } from '../utils/weatherCodes'
 import { buildFlight3dCollections, pathHas3d } from '../utils/flight3d'
 import { buildNoiseRangeFeatures } from '../utils/noiseRange'
 import { LoadingDots } from './LoadingDots'
+import { MapSearchPanel } from './MapSearchPanel'
 import { WeatherBadge } from './WeatherBadge'
 import { WeatherOverlay } from './WeatherOverlay'
 import 'maplibre-gl/dist/maplibre-gl.css'
@@ -37,6 +38,8 @@ interface MapViewProps {
   onToggleWeatherLayer: () => void
   onRefreshWeather: () => void
   onMapClick: (lngLat: LngLat) => void
+  onSetStart: (lngLat: LngLat) => void
+  onSetEnd: (lngLat: LngLat) => void
   noiseRangeM?: number
   showNoiseRange?: boolean
 }
@@ -59,6 +62,8 @@ export function MapView({
   onToggleWeatherLayer,
   onRefreshWeather,
   onMapClick,
+  onSetStart,
+  onSetEnd,
   noiseRangeM = 0,
   showNoiseRange = false,
 }: MapViewProps) {
@@ -71,6 +76,20 @@ export function MapView({
       features: buildings,
     }),
     [buildings],
+  )
+
+  const waypointCollection = useMemo(
+    () => ({
+      type: 'FeatureCollection' as const,
+      features: paths.flatMap((path) =>
+        path.coordinates.map((coordinate, index) => ({
+          type: 'Feature' as const,
+          properties: { color: path.color, index },
+          geometry: { type: 'Point' as const, coordinates: coordinate },
+        })),
+      ),
+    }),
+    [paths],
   )
 
   const flight3d = useMemo(() => buildFlight3dCollections(paths), [paths])
@@ -122,6 +141,13 @@ export function MapView({
           {pickMode === 'start' ? 'Click map to set start' : 'Click map to set end'}
         </div>
       )}
+
+      <MapSearchPanel
+        startPlaceName={startPlaceName}
+        endPlaceName={endPlaceName}
+        onSetStart={onSetStart}
+        onSetEnd={onSetEnd}
+      />
 
       <Map
         ref={mapRef}
@@ -231,6 +257,21 @@ export function MapView({
                 'fill-extrusion-height': ['get', 'height'],
                 'fill-extrusion-base': ['get', 'base'],
                 'fill-extrusion-opacity': 0.82,
+              }}
+            />
+          </Source>
+        )}
+
+        {waypointCollection.features.length > 0 && (
+          <Source id="route-waypoints" type="geojson" data={waypointCollection}>
+            <Layer
+              id="route-waypoint-dots"
+              type="circle"
+              paint={{
+                'circle-radius': 4.5,
+                'circle-color': ['get', 'color'],
+                'circle-stroke-width': 1.5,
+                'circle-stroke-color': '#f8fafc',
               }}
             />
           </Source>

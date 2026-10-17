@@ -2,7 +2,7 @@ import { planPaths } from './pathPlanner.js'
 
 const PHOTON_SEARCH = 'https://photon.komoot.io/api/'
 const OPEN_METEO = 'https://api.open-meteo.com/v1/forecast'
-const WIND_CAN_FLY_KMH = 10
+const WIND_CAN_FLY_KMH = 40
 
 /** Major airport / restricted centers used only by check_airspace (no weather). */
 const RESTRICTED_ZONES = [
@@ -104,7 +104,7 @@ export async function resolvePlace(name) {
 
 /**
  * get_weather(lng, lat) → { windSpeed, canFly } | { error }
- * canFly when windSpeed < 10 (km/h).
+ * canFly when windSpeed < 40 km/h. At or above 40 km/h, cannot fly.
  */
 export async function getWeather(lng, lat) {
   const lon = Number(lng)
@@ -202,6 +202,9 @@ export async function planRoute(startLng, startLat, endLng, endLat, avoidBuildin
       distance: path.metrics?.distanceKm ?? null,
       time: path.metrics?.estimatedTimeMin ?? null,
       coordinates: path.coordinates,
+      altitudes: Array.isArray(path.altitudes) ? path.altitudes : [],
+      avoidBuildings: avoid,
+      metrics: path.metrics ?? null,
     }
   } catch (err) {
     return { error: err instanceof Error ? err.message : '航线规划失败' }
@@ -229,7 +232,7 @@ export const AGENT_TOOL_DEFINITIONS = [
     function: {
       name: 'get_weather',
       description:
-        'Get wind speed (km/h) and canFly for a coordinate. canFly is true when windSpeed < 10. Invalid coords return { error }.',
+        'Get wind speed (km/h) and canFly for a coordinate. canFly is true when windSpeed < 40. At or above 40 km/h, cannot fly. Invalid coords return { error }.',
       parameters: {
         type: 'object',
         properties: {
