@@ -4,27 +4,19 @@ import {
   executeAgentTool,
   extractToolError,
 } from './agentTools.js'
-import { describeWorkflowNode, summarizeToolResult } from './agentWorkflow.js'
+import {
+  buildSystemPrompt,
+  describeWorkflowNode,
+  findWorkflowBranch,
+  isToolEnabled,
+  normalizeWorkflow,
+  pickLlmBranch,
+  pickWorkflowBranch,
+  summarizeToolResult,
+  visibleBranches,
+} from './agentWorkflow.js'
 
 const MAX_TOOL_STEPS = 5
-
-const SYSTEM_PROMPT = `你是无人机飞行助手。你可以通过工具获取事实，再回答用户。
-
-可用工具（每个只做一件事）：
-1. resolve_place(name) — 地名→坐标；不认识返回 error「未知地点」，禁止猜坐标
-2. get_weather(lng, lat) — 返回风速 windSpeed 与 canFly（风速 < 40 km/h 为 true，40 km/h 及以上不能飞）；坐标非法返回 error
-3. check_airspace(startLng, startLat, endLng, endLat) — 返回 closed；不查天气
-4. plan_route(startLng, startLat, endLng, endLat, avoidBuildings) — 返回 distance、time、coordinates；avoidBuildings=true 时只要绕开高楼的那条
-
-编排规则（由你根据上一步工具结果决定下一步，不要当成写死脚本机械执行）：
-- 用户消息里会附带当前地图的起点和终点坐标。用户没有另外指定新地点时，直接用这些坐标，不要再 resolve_place。
-- 用户只问风/风速/天气适飞：只用起点坐标调用 get_weather。
-- 用户要路线/怎么飞：直接用当前起点和终点。先 get_weather（起点）；若 canFly 为 false 则停止并说明不能飞；再 check_airspace，若 closed 为 true 则停止并说明空域关闭；最后才 plan_route。
-- 只有用户明确说出新的地名（且不是当前已给的起点/终点名称）时，才 resolve_place，再用解析出的坐标替换对应端点。
-- 用户要求「起飞 / 现在起飞 / take off」：不要调用任何工具，直接回复不能起飞。
-- 工具结果含 error 或 ok:false：把 error 原文告诉用户，不要改写、不要继续瞎猜。
-- 回答简洁，用中文 Markdown（可用加粗和列表），不要把 Markdown 源码当纯文本堆砌。
-- 用户消息之前可能附带更早的对话。请接着上下文回答；用户没有重新提出路线、天气或起飞时，不要重复执行已经完成的工具。`
 
 function parseToolArgs(raw) {
   if (raw == null || raw === '') return {}
@@ -82,7 +74,7 @@ function normalizeHistory(history) {
     }))
 }
 
-function createWorkflowEmitter(onEvent) {
+function createWorkflowEmitter(onEvent, workflowDef) {
   let seq = 0
   const startedAt = Date.now()
 
@@ -91,18 +83,26 @@ function createWorkflowEmitter(onEvent) {
   }
 
   const openNode = (key) => {
-    const meta = describeWorkflowNode(key)
+    const meta = describeWorkflowNode(key, workflowDef)
     const id = `${key}-${++seq}`
     const started = Date.now()
+    const branches = visibleBranches(workflowDef, key)
     emit('node_started', {
       id,
       nodeType: meta.type,
       title: meta.title,
       tool: meta.type === 'tool' ? key : undefined,
       status: 'running',
+      ...(branches ? { branches } : {}),
     })
     return {
       finish(status, extra = {}) {
+        const branch =
+          extra.branch != null
+            ? extra.branch
+            : extra.result
+              ? pickWorkflowBranch(key, extra.result)
+              : null
         emit('node_finished', {
           id,
           nodeType: meta.type,
@@ -110,7 +110,9 @@ function createWorkflowEmitter(onEvent) {
           tool: meta.type === 'tool' ? key : undefined,
           status,
           nodeElapsedMs: Date.now() - started,
+          ...(branches ? { branches } : {}),
           ...extra,
+          ...(branch != null ? { branch } : {}),
         })
       },
     }
@@ -133,11 +135,16 @@ export async function runDroneAgent({
   endLng,
   endPlaceName,
   history = [],
+  workflow: workflowInput,
   onEvent,
 }) {
+  const workflowDef = normalizeWorkflow(workflowInput)
+  const enabledTools = AGENT_TOOL_DEFINITIONS.filter((tool) =>
+    isToolEnabled(workflowDef, tool.function.name),
+  )
   const prior = normalizeHistory(history)
   const messages = [
-    { role: 'system', content: SYSTEM_PROMPT },
+    { role: 'system', content: buildSystemPrompt(workflowDef) },
     ...prior,
     {
       role: 'user',
@@ -149,24 +156,24 @@ export async function runDroneAgent({
   let model = null
   let lastUsage = null
   let activeNode = null
-  const workflow = createWorkflowEmitter(onEvent)
+  const trace = createWorkflowEmitter(onEvent, workflowDef)
 
-  workflow.emit('workflow_started', { status: 'running' })
-  const startNode = workflow.openNode('start')
+  trace.emit('workflow_started', { status: 'running' })
+  const startNode = trace.openNode('start')
   startNode.finish('succeeded', { detail: '已接收问题' })
 
   const finishWorkflow = (payload) => {
-    workflow.emit('workflow_finished', payload)
+    trace.emit('workflow_finished', payload)
     return payload
   }
 
   try {
     for (let step = 0; step < MAX_TOOL_STEPS; step++) {
-      const llmNode = workflow.openNode('llm')
+      const llmNode = trace.openNode('llm')
       activeNode = llmNode
       const result = await moonshotChat({
         messages,
-        tools: AGENT_TOOL_DEFINITIONS,
+        tools: enabledTools,
         toolChoice: 'auto',
         responseFormat: 'text',
       })
@@ -175,9 +182,9 @@ export async function runDroneAgent({
       lastUsage = result.usage
 
       if (!result.toolCalls.length) {
-        llmNode.finish('succeeded', { detail: '生成回复' })
+        llmNode.finish('succeeded', { detail: '生成回复', branch: 'answer' })
         activeNode = null
-        const answerNode = workflow.openNode('answer')
+        const answerNode = trace.openNode('answer')
         const reply = result.content || '完成。'
         answerNode.finish('succeeded')
         return finishWorkflow({
@@ -190,10 +197,14 @@ export async function runDroneAgent({
         })
       }
 
-      const nextTools = result.toolCalls
-        .map((call) => describeWorkflowNode(call?.function?.name).title)
-        .filter(Boolean)
-      llmNode.finish('succeeded', { detail: nextTools.length ? `下一步：${nextTools.join('、')}` : '调用工具' })
+      const nextNames = result.toolCalls
+        .map((call) => call?.function?.name)
+        .filter((name) => typeof name === 'string' && name)
+      const nextTools = nextNames.map((name) => describeWorkflowNode(name, workflowDef).title).filter(Boolean)
+      llmNode.finish('succeeded', {
+        detail: nextTools.length ? `下一步：${nextTools.join('、')}` : '调用工具',
+        branch: pickLlmBranch(nextNames),
+      })
       activeNode = null
 
       messages.push({
@@ -205,10 +216,16 @@ export async function runDroneAgent({
       for (const toolCall of result.toolCalls) {
         const name = toolCall?.function?.name
         const args = parseToolArgs(toolCall?.function?.arguments)
-        const toolNode = workflow.openNode(name || 'tool')
+        const toolNode = trace.openNode(name || 'tool')
         activeNode = toolNode
-        const toolResult = await executeAgentTool(name, args)
+        const toolResult =
+          name && workflowDef.nodes[name]?.enabled === false
+            ? { error: '工具已关闭' }
+            : await executeAgentTool(name, args)
         const toolError = extractToolError(toolResult)
+        const branchId = pickWorkflowBranch(name, toolResult)
+        const branchMeta = findWorkflowBranch(workflowDef, name, branchId)
+        const stop = branchMeta ? branchMeta.terminal === true : Boolean(toolError)
 
         steps.push({
           tool: name,
@@ -230,23 +247,40 @@ export async function runDroneAgent({
           content: JSON.stringify(toolResult),
         })
 
-        if (toolError) {
-          const answerNode = workflow.openNode('answer')
-          answerNode.finish('failed', { detail: toolError })
+        if (stop) {
+          let reply = toolError || branchMeta?.label || '已停止'
+          let ok = !toolError
+          if (!toolError) {
+            const final = await moonshotChat({
+              messages: [
+                ...messages,
+                {
+                  role: 'user',
+                  content: `分支「${branchMeta?.label ?? ''}」配置为停止。请用一两句中文说明这个结果，不要再调用工具。`,
+                },
+              ],
+              responseFormat: 'text',
+            })
+            reply = final.content || reply
+            model = final.model ?? model
+            lastUsage = final.usage ?? lastUsage
+          }
+          const answerNode = trace.openNode('answer')
+          answerNode.finish(ok ? 'succeeded' : 'failed', { detail: toolError || branchMeta?.label })
           return finishWorkflow({
-            ok: false,
-            reply: toolError,
-            error: toolError,
+            ok,
+            reply,
+            error: toolError || null,
             steps,
             model,
             usage: lastUsage,
-            status: 'failed',
+            status: ok ? 'succeeded' : 'failed',
           })
         }
       }
     }
 
-    const llmNode = workflow.openNode('llm')
+    const llmNode = trace.openNode('llm')
     activeNode = llmNode
     const final = await moonshotChat({
       messages: [
@@ -258,9 +292,9 @@ export async function runDroneAgent({
       ],
       responseFormat: 'text',
     })
-    llmNode.finish('succeeded', { detail: '生成回复' })
+    llmNode.finish('succeeded', { detail: '生成回复', branch: 'answer' })
     activeNode = null
-    const answerNode = workflow.openNode('answer')
+    const answerNode = trace.openNode('answer')
     const reply = final.content || '步骤已达上限，请简化问题后重试。'
     answerNode.finish('succeeded')
 
@@ -277,7 +311,7 @@ export async function runDroneAgent({
     const messageText = err instanceof Error ? err.message : 'Agent request failed'
     activeNode?.finish('failed', { detail: messageText })
     activeNode = null
-    workflow.emit('workflow_finished', {
+    trace.emit('workflow_finished', {
       ok: false,
       reply: messageText,
       error: messageText,

@@ -1,3 +1,5 @@
+import type { WorkflowDefinition } from './workflow'
+
 const API_BASE = import.meta.env.VITE_API_BASE ?? '/api'
 
 export interface AirspaceRestriction {
@@ -57,6 +59,7 @@ export interface AgentChatRequest {
   endLng?: number
   endPlaceName?: string
   history?: { role: 'user' | 'assistant'; content: string }[]
+  workflow?: WorkflowDefinition
 }
 
 export interface AgentRouteResult {
@@ -114,6 +117,12 @@ export async function queryAirspaceAgent(
   return parseJson<AgentAirspaceResponse>(response)
 }
 
+export interface WorkflowBranch {
+  id: string
+  label: string
+  terminal?: boolean
+}
+
 export interface WorkflowNodeState {
   id: string
   nodeType: string
@@ -122,6 +131,8 @@ export interface WorkflowNodeState {
   tool?: string
   detail?: string
   nodeElapsedMs?: number
+  branches?: WorkflowBranch[]
+  branch?: string | string[]
   result?: AgentRouteResult | Record<string, unknown>
 }
 
@@ -135,6 +146,8 @@ export interface WorkflowStreamEvent {
   detail?: string
   nodeElapsedMs?: number
   elapsedMs?: number
+  branches?: WorkflowBranch[]
+  branch?: string | string[]
   ok?: boolean
   reply?: string
   error?: string | null
@@ -148,6 +161,7 @@ export async function streamAgentChat(
 ): Promise<void> {
   const response = await fetch(`${API_BASE}/agent/chat/stream`, {
     method: 'POST',
+    credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })

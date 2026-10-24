@@ -1,4 +1,4 @@
-import type { WorkflowNodeState } from '../api/agent'
+import type { WorkflowBranch, WorkflowNodeState } from '../api/agent'
 
 interface WorkflowTraceProps {
   nodes: WorkflowNodeState[]
@@ -10,6 +10,42 @@ function formatElapsed(ms?: number) {
   if (!Number.isFinite(ms)) return ''
   if ((ms ?? 0) < 1000) return `${Math.max(1, Math.round(ms ?? 0))} ms`
   return `${((ms ?? 0) / 1000).toFixed(1)} s`
+}
+
+function takenBranchIds(branch?: string | string[]) {
+  if (!branch) return []
+  return Array.isArray(branch) ? branch : [branch]
+}
+
+function NodeBranches({ node }: { node: WorkflowNodeState }) {
+  const catalog = node.branches ?? []
+  const taken = takenBranchIds(node.branch)
+  const extras: WorkflowBranch[] = taken
+    .filter((id) => !catalog.some((item) => item.id === id))
+    .map((id) => ({ id, label: id }))
+  const branches: WorkflowBranch[] = [...catalog, ...extras]
+  if (!branches.length) return null
+
+  return (
+    <ul className="workflow-branches" aria-label={`${node.title}的分支`}>
+      {branches.map((item) => {
+        const state =
+          node.status === 'running' || !taken.length
+            ? 'pending'
+            : taken.includes(item.id)
+              ? 'taken'
+              : 'idle'
+        return (
+          <li key={item.id} className={`workflow-branch ${state}${item.terminal ? ' terminal' : ''}`}>
+            <span className="workflow-branch-arm" aria-hidden="true" />
+            <span className="workflow-branch-label">{item.label}</span>
+            {state === 'idle' && <em>未走</em>}
+            {state === 'taken' && item.terminal && <em>停止</em>}
+          </li>
+        )
+      })}
+    </ul>
+  )
 }
 
 export function WorkflowTrace({ nodes, status, elapsedMs }: WorkflowTraceProps) {
@@ -35,6 +71,9 @@ export function WorkflowTrace({ nodes, status, elapsedMs }: WorkflowTraceProps) 
                 <em>{node.status === 'running' ? '运行中' : formatElapsed(node.nodeElapsedMs)}</em>
               </div>
               {node.detail && <p>{node.detail}</p>}
+              {!!node.branches?.length && (
+                <NodeBranches node={node} />
+              )}
             </div>
           </li>
         ))}

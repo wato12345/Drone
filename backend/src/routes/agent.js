@@ -2,9 +2,9 @@ import { Router } from 'express'
 import { getMoonshotConfig } from '../services/moonshot.js'
 import { runAirspaceAgent } from '../services/airspaceAgent.js'
 import { runDroneAgent } from '../services/droneAgent.js'
-import { AGENT_WORKFLOW } from '../services/agentWorkflow.js'
-import { authMiddleware } from '../middleware/auth.js'
-import { getAgentChat, saveAgentChat } from '../db/index.js'
+import { normalizeWorkflow } from '../services/agentWorkflow.js'
+import { authMiddleware, optionalAuth } from '../middleware/auth.js'
+import { getAgentChat, getAgentWorkflow, saveAgentChat, saveAgentWorkflow } from '../db/index.js'
 
 function parseLocation(body = {}) {
   const lat = body.startLat !== undefined
@@ -44,6 +44,32 @@ function validateLocation({ lat, lng, placeName, message }) {
   return null
 }
 
+function sanitizeBranches(branches) {
+  if (!Array.isArray(branches)) return undefined
+  const clean = branches
+    .slice(0, 8)
+    .map((item) => {
+      if (!item || typeof item.id !== 'string' || typeof item.label !== 'string') return null
+      return {
+        id: item.id.slice(0, 64),
+        label: item.label.slice(0, 32),
+        ...(item.terminal === true ? { terminal: true } : {}),
+      }
+    })
+    .filter(Boolean)
+  return clean.length ? clean : undefined
+}
+
+function sanitizeBranch(branch) {
+  if (typeof branch === 'string' && branch) return branch.slice(0, 64)
+  if (!Array.isArray(branch)) return undefined
+  const ids = branch
+    .filter((id) => typeof id === 'string' && id)
+    .slice(0, 6)
+    .map((id) => id.slice(0, 64))
+  return ids.length ? ids : undefined
+}
+
 function sanitizeStoredMessages(messages) {
   if (!Array.isArray(messages)) return []
   return messages
@@ -75,9 +101,22 @@ function sanitizeStoredMessages(messages) {
             nodeElapsedMs: Number.isFinite(Number(node?.nodeElapsedMs))
               ? Number(node.nodeElapsedMs)
               : undefined,
+            branches: sanitizeBranches(node?.branches),
+            branch: sanitizeBranch(node?.branch),
           }))
         : undefined,
     }))
+}
+
+async function resolveRequestWorkflow(req) {
+  if (req.body?.workflow && typeof req.body.workflow === 'object') {
+    return normalizeWorkflow(req.body.workflow)
+  }
+  if (req.user) {
+    const saved = await getAgentWorkflow(req.user.id)
+    if (saved) return normalizeWorkflow(saved)
+  }
+  return normalizeWorkflow(null)
 }
 
 export function createAgentRouter() {
@@ -92,8 +131,28 @@ export function createAgentRouter() {
     })
   })
 
-  router.get('/workflow', (_req, res) => {
-    res.json(AGENT_WORKFLOW)
+  router.get('/workflow', optionalAuth, async (req, res) => {
+    try {
+      if (req.query.default === '1') {
+        return res.json({ workflow: normalizeWorkflow(null), saved: false })
+      }
+      const saved = req.user ? await getAgentWorkflow(req.user.id) : null
+      res.json({ workflow: normalizeWorkflow(saved), saved: Boolean(saved) })
+    } catch (err) {
+      console.error('Load workflow error:', err)
+      res.status(500).json({ error: 'Failed to load workflow' })
+    }
+  })
+
+  router.put('/workflow', authMiddleware, async (req, res) => {
+    const workflow = normalizeWorkflow(req.body?.workflow ?? req.body)
+    try {
+      await saveAgentWorkflow(req.user.id, workflow)
+      res.json({ workflow, saved: true })
+    } catch (err) {
+      console.error('Save workflow error:', err)
+      res.status(500).json({ error: 'Failed to save workflow' })
+    }
   })
 
   router.get('/history', authMiddleware, async (req, res) => {
@@ -121,7 +180,7 @@ export function createAgentRouter() {
    * POST /api/agent/chat/stream
    * Server-sent events: node_started, node_finished, workflow_finished
    */
-  router.post('/chat/stream', async (req, res) => {
+  router.post('/chat/stream', optionalAuth, async (req, res) => {
     const config = getMoonshotConfig()
     if (!config.configured) {
       return res.status(503).json({ error: 'Agent is not configured: MOONSHOT_API_KEY missing' })
@@ -145,7 +204,8 @@ export function createAgentRouter() {
     }
 
     try {
-      await runDroneAgent({ ...input, onEvent: write })
+      const workflow = await resolveRequestWorkflow(req)
+      await runDroneAgent({ ...input, workflow, onEvent: write })
     } catch (err) {
       console.error('Drone agent stream error:', err)
     } finally {
@@ -158,7 +218,7 @@ export function createAgentRouter() {
    * Tool-using drone agent: resolve_place / get_weather / check_airspace / plan_route
    * body: { message, lat?, lng?, placeName? }
    */
-  router.post('/chat', async (req, res) => {
+  router.post('/chat', optionalAuth, async (req, res) => {
     const config = getMoonshotConfig()
     if (!config.configured) {
       return res.status(503).json({ error: 'Agent is not configured: MOONSHOT_API_KEY missing' })
@@ -170,7 +230,8 @@ export function createAgentRouter() {
     }
 
     try {
-      const result = await runDroneAgent(input)
+      const workflow = await resolveRequestWorkflow(req)
+      const result = await runDroneAgent({ ...input, workflow })
       res.json({
         ok: result.ok,
         reply: result.reply,

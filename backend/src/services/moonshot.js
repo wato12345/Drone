@@ -56,13 +56,14 @@ export async function moonshotChat({
 
   const data = await response.json().catch(() => ({}))
   if (!response.ok) {
-    const message =
+    const raw =
       typeof data?.error?.message === 'string'
         ? data.error.message
         : typeof data?.error === 'string'
           ? data.error
           : `Moonshot request failed (${response.status})`
-    const err = new Error(message)
+    console.error('Moonshot request failed:', response.status, raw)
+    const err = new Error(readableMoonshotError(raw, response.status))
     err.status = response.status
     throw err
   }
@@ -84,6 +85,40 @@ export async function moonshotChat({
     model: data?.model ?? model,
     usage: data?.usage ?? null,
   }
+}
+
+export function readableMoonshotError(message, status) {
+  const raw = typeof message === 'string' ? message : ''
+  const wait = raw.match(/try again after\s*(\d+)\s*seconds?/i)
+  const retry = wait ? `请 ${wait[1]} 秒后再试` : '请稍后再试'
+
+  const rpm = raw.match(/max RPM:\s*(\d+)/i)
+  if (/max RPM/i.test(raw)) {
+    const limit = rpm ? `每分钟最多 ${rpm[1]} 次` : '已达到每分钟请求上限'
+    return `请求过于频繁：${limit}，${retry}。`
+  }
+
+  const tpm = raw.match(/max TPM:\s*(\d+)/i)
+  if (/max TPM/i.test(raw)) {
+    const limit = tpm ? `每分钟 token 上限 ${tpm[1]}` : '已达到每分钟 token 上限'
+    return `请求过于频繁：${limit}，${retry}。`
+  }
+
+  if (status === 429) return `请求过于频繁，${retry}。`
+  if (status === 401 || /invalid api key|incorrect api key|authentication/i.test(raw)) {
+    return '模型服务鉴权失败，请检查 API Key。'
+  }
+  if (status === 402 || /insufficient balance|exceeded your current quota/i.test(raw)) {
+    return '模型服务额度不足，请检查账户余额。'
+  }
+
+  const cleaned = raw
+    .replace(/org-[a-z0-9]+/gi, '')
+    .replace(/<?(?:ak|sk)-[a-z0-9]+>?/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s+([,.;])/g, '$1')
+    .trim()
+  return cleaned || `模型请求失败（${status}）`
 }
 
 export function parseJsonContent(content) {

@@ -14,6 +14,19 @@ export function getTokenFromRequest(req) {
   return null
 }
 
+export async function optionalAuth(req, _res, next) {
+  const token = getTokenFromRequest(req)
+  if (!token) return next()
+  try {
+    const payload = verifyToken(token)
+    const user = await findUserById(payload.sub)
+    if (user) req.user = toPublicUser(user)
+  } catch {
+    // Treat a bad session as a guest on routes that work without login.
+  }
+  next()
+}
+
 export async function authMiddleware(req, res, next) {
   const token = getTokenFromRequest(req)
   if (!token) {

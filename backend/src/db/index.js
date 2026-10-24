@@ -65,6 +65,15 @@ async function initSchema(database) {
   }
 
   await database.query(`
+    CREATE TABLE IF NOT EXISTS agent_workflows (
+      user_id CHAR(36) PRIMARY KEY,
+      workflow_json LONGTEXT NOT NULL,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      CONSTRAINT fk_agent_workflow_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `)
+
+  await database.query(`
     CREATE TABLE IF NOT EXISTS agent_chats (
       user_id CHAR(36) PRIMARY KEY,
       messages_json LONGTEXT NOT NULL,
@@ -251,6 +260,33 @@ export async function getAgentChat(userId) {
   } catch {
     return []
   }
+}
+
+export async function getAgentWorkflow(userId) {
+  const [rows] = await getDb().query(
+    'SELECT workflow_json FROM agent_workflows WHERE user_id = :userId LIMIT 1',
+    { userId },
+  )
+  const raw = rows[0]?.workflow_json
+  if (!raw) return null
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+    return parsed && typeof parsed === 'object' ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+export async function saveAgentWorkflow(userId, workflow) {
+  const workflowJson = JSON.stringify(workflow)
+  await getDb().query(
+    `
+      INSERT INTO agent_workflows (user_id, workflow_json)
+      VALUES (:userId, :workflowJson)
+      ON DUPLICATE KEY UPDATE workflow_json = VALUES(workflow_json)
+    `,
+    { userId, workflowJson },
+  )
 }
 
 export async function saveAgentChat(userId, messages) {

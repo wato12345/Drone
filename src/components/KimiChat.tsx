@@ -4,6 +4,7 @@ import { streamAgentChat, fetchAgentHistory, saveAgentHistory, type AgentRouteRe
 import type { LngLat } from '../types'
 import { useAuth } from '../context/AuthContext'
 import { WorkflowTrace } from './WorkflowTrace'
+import { readStoredWorkflow } from '../api/workflow'
 
 const LEGACY_CHAT_STORAGE_KEY = 'drone-kimi-chat-v1'
 
@@ -42,6 +43,12 @@ function persistableMessages(messages: ChatMessage[]): StoredAgentMessage[] {
         tool: node.tool,
         detail: node.detail,
         nodeElapsedMs: node.nodeElapsedMs,
+        branches: node.branches?.map((branch) => ({
+          id: branch.id,
+          label: branch.label,
+          terminal: branch.terminal,
+        })),
+        branch: node.branch,
       })),
     }))
 }
@@ -186,6 +193,7 @@ export function KimiChat({ start, end, startPlaceName, endPlaceName, onRoute }: 
           endLat,
           endPlaceName: endPlaceName || undefined,
           history,
+          workflow: readStoredWorkflow() ?? undefined,
         },
         (event) => {
           if (event.event === 'node_started' && event.id) {
@@ -195,6 +203,7 @@ export function KimiChat({ start, end, startPlaceName, endPlaceName, onRoute }: 
               title: event.title || event.id,
               status: 'running',
               tool: event.tool,
+              branches: event.branches,
             }
             patchAssistant(assistantId, (current) => ({
               ...current,
@@ -222,6 +231,8 @@ export function KimiChat({ start, end, startPlaceName, endPlaceName, onRoute }: 
                       status: event.status === 'failed' ? 'failed' : 'succeeded',
                       detail: event.detail,
                       nodeElapsedMs: event.nodeElapsedMs,
+                      branches: event.branches ?? node.branches,
+                      branch: event.branch,
                       result: event.result,
                     }
                   : node,

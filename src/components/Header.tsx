@@ -42,6 +42,12 @@ export function Header({ onLoginClick }: HeaderProps) {
             Planner
           </NavLink>
           <NavLink
+            to="/workflow"
+            className={({ isActive }) => (isActive ? 'header-nav-link active' : 'header-nav-link')}
+          >
+            Workflow
+          </NavLink>
+          <NavLink
             to="/studio"
             className={({ isActive }) => (isActive ? 'header-nav-link active' : 'header-nav-link')}
           >
@@ -71,8 +77,6 @@ export function Header({ onLoginClick }: HeaderProps) {
           >
             Drone & Noise
           </NavLink>
-          <span>Wind Drag</span>
-          <span>Dual Path Comparison</span>
         </div>
         <div className="header-user">
           {user ? (

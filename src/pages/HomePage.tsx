@@ -16,6 +16,9 @@ export default function HomePage() {
           <Link to="/about" className="btn btn-ghost">
             Learn More
           </Link>
+          <Link to="/workflow" className="btn btn-ghost">
+            Workflow Console
+          </Link>
         </div>
       </section>
 
@@ -32,6 +35,10 @@ export default function HomePage() {
           <h2>Multi-Factor Cost Fusion</h2>
           <p>Weighs distance, building avoidance, noise, and wind drag to produce routes that better match real-world flight.</p>
         </article>
+        <Link to="/workflow" className="page-card page-card-link">
+          <h2>Workflow Console</h2>
+          <p>Configure the flight assistant: rename nodes, turn tools on or off, and choose which branches stop or return to the orchestrator.</p>
+        </Link>
       </section>
     </main>
   )
