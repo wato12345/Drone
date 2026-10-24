@@ -14,6 +14,8 @@ interface AuthContextValue {
   user: AuthUser | null
   isLoading: boolean
   error: string | null
+  loginSignal: number
+  requestLogin: () => void
   login: (username: string, password: string) => Promise<void>
   register: (username: string, password: string, email?: string) => Promise<void>
   logout: () => Promise<void>
@@ -26,6 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [loginSignal, setLoginSignal] = useState(0)
 
   useEffect(() => {
     fetchCurrentUser()
@@ -55,6 +58,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
   }, [])
 
+  const requestLogin = useCallback(() => setLoginSignal((value) => value + 1), [])
+
   const clearError = useCallback(() => setError(null), [])
 
   const value = useMemo(
@@ -62,12 +67,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       isLoading,
       error,
+      loginSignal,
+      requestLogin,
       login,
       register,
       logout,
       clearError,
     }),
-    [user, isLoading, error, login, register, logout, clearError],
+    [user, isLoading, error, loginSignal, requestLogin, login, register, logout, clearError],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

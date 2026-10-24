@@ -72,7 +72,7 @@ export default function PlannerPage() {
           showWeatherLayer={weather.showLayer}
           previewCondition={weather.previewCondition}
           onPreviewWeatherChange={weather.setPreviewCondition}
-          onToggleWeatherLayer={() => weather.setShowLayer((v) => !v)}
+          onToggleWeatherLayer={weather.toggleLayer}
           onRefreshWeather={weather.refresh}
           onMapClick={planner.handleMapClick}
           onSetStart={planner.setStartPoint}

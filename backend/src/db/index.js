@@ -81,6 +81,17 @@ async function initSchema(database) {
       CONSTRAINT fk_agent_chat_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `)
+
+  await database.query(`
+    CREATE TABLE IF NOT EXISTS analytics_events (
+      id CHAR(36) PRIMARY KEY,
+      event_key VARCHAR(191) NOT NULL,
+      actor_id VARCHAR(64) NOT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_analytics_event_actor (event_key, actor_id),
+      INDEX idx_analytics_actor_time (actor_id, created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `)
 }
 
 export async function initDb() {

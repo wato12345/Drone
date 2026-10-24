@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fetchWeather } from '../api/weather'
 import type { WeatherData } from '../api/weather'
+import { fetchWeatherLayerPreference, trackWeatherLayerToggle } from '../tracking'
 import type { LngLat } from '../types'
 import {
   getConditionMeta,
@@ -21,9 +22,30 @@ export function useWeather(location: LngLat, enabled = true) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showLayer, setShowLayer] = useState(true)
+  const layerChosenByUser = useRef(false)
   const [previewCondition, setPreviewCondition] = useState<WeatherCondition | null>(
     readPreviewFromHash,
   )
+
+  const toggleLayer = useCallback(() => {
+    layerChosenByUser.current = true
+    setShowLayer((visible) => {
+      const nextVisible = !visible
+      trackWeatherLayerToggle(nextVisible)
+      return nextVisible
+    })
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    void fetchWeatherLayerPreference().then((preference) => {
+      if (cancelled || layerChosenByUser.current || !preference) return
+      setShowLayer(preference.defaultPosition !== 'hide-layer')
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const displayWeather = useMemo(() => {
     if (!weather || !previewCondition) return weather
@@ -77,6 +99,7 @@ export function useWeather(location: LngLat, enabled = true) {
     isLoading,
     error,
     showLayer,
+    toggleLayer,
     previewCondition,
     setShowLayer,
     setPreviewCondition: setPreview,

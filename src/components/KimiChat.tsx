@@ -84,7 +84,7 @@ interface ChatMessage {
 }
 
 export function KimiChat({ start, end, startPlaceName, endPlaceName, onRoute }: KimiChatProps) {
-  const { user } = useAuth()
+  const { user, requestLogin } = useAuth()
   const [open, setOpen] = useState(false)
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
@@ -95,6 +95,10 @@ export function KimiChat({ start, end, startPlaceName, endPlaceName, onRoute }: 
   const hydratedUserId = useRef<string | null>(null)
 
   messagesRef.current = messages
+
+  useEffect(() => {
+    if (!user) setOpen(false)
+  }, [user])
 
   useEffect(() => {
     const userId = user?.id ?? null
@@ -160,6 +164,10 @@ export function KimiChat({ start, end, startPlaceName, endPlaceName, onRoute }: 
   const sendMessage = async (raw: string) => {
     const message = raw.trim()
     if (!message || sending) return
+    if (!user) {
+      requestLogin()
+      return
+    }
 
     const assistantId = `a-${Date.now()}`
     routedRef.current = null
@@ -277,7 +285,7 @@ export function KimiChat({ start, end, startPlaceName, endPlaceName, onRoute }: 
         <div className="kimi-panel" role="dialog" aria-label="Kimi Assistant">
           <div className="kimi-panel-header">
             <div>
-              <strong>Kimi 助手</strong>
+              <strong>Kimi AI</strong>
               <span>
                 {user
                   ? `${startPlaceName || '起点'} → ${endPlaceName || '终点'}`
@@ -349,11 +357,17 @@ export function KimiChat({ start, end, startPlaceName, endPlaceName, onRoute }: 
       <button
         type="button"
         className="kimi-fab"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          if (!user) {
+            requestLogin()
+            return
+          }
+          setOpen((value) => !value)
+        }}
         aria-expanded={open}
-        aria-label={open ? 'Close Kimi chat' : 'Open Kimi chat'}
+        aria-label={open ? 'Close Kimi AI' : 'Open Kimi AI'}
       >
-        {open ? 'Collapse' : 'Kimi'}
+        {open ? 'Collapse' : 'Kimi AI'}
       </button>
     </div>
   )

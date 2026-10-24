@@ -7,6 +7,7 @@ import { createAuthRouter } from './routes/auth.js'
 import { createAgentRouter } from './routes/agent.js'
 import { createGeocodeRouter } from './routes/geocode.js'
 import { createPlanRouter } from './routes/plan.js'
+import { createTrackRouter } from './routes/track.js'
 
 const app = express()
 const PORT = Number(process.env.PORT ?? 5001)
@@ -45,6 +46,7 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/auth', createAuthRouter({ isProd }))
 app.use('/api/geocode', createGeocodeRouter())
 app.use('/api/agent', createAgentRouter())
+app.use('/api/track', createTrackRouter())
 app.use('/api', createPlanRouter())
 
 app.use((_req, res) => {

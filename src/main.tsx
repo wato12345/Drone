@@ -4,6 +4,9 @@ import App from './App'
 import { AuthProvider } from './context/AuthContext'
 import { BuildingAvoidanceProvider } from './context/BuildingAvoidanceContext'
 import { FlightSettingsProvider } from './context/FlightSettingsContext'
+import { initTracking } from './tracking'
+
+initTracking()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

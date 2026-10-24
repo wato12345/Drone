@@ -180,7 +180,7 @@ export function createAgentRouter() {
    * POST /api/agent/chat/stream
    * Server-sent events: node_started, node_finished, workflow_finished
    */
-  router.post('/chat/stream', optionalAuth, async (req, res) => {
+  router.post('/chat/stream', authMiddleware, async (req, res) => {
     const config = getMoonshotConfig()
     if (!config.configured) {
       return res.status(503).json({ error: 'Agent is not configured: MOONSHOT_API_KEY missing' })
@@ -218,7 +218,7 @@ export function createAgentRouter() {
    * Tool-using drone agent: resolve_place / get_weather / check_airspace / plan_route
    * body: { message, lat?, lng?, placeName? }
    */
-  router.post('/chat', optionalAuth, async (req, res) => {
+  router.post('/chat', authMiddleware, async (req, res) => {
     const config = getMoonshotConfig()
     if (!config.configured) {
       return res.status(503).json({ error: 'Agent is not configured: MOONSHOT_API_KEY missing' })

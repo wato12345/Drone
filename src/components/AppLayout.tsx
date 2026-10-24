@@ -7,9 +7,13 @@ import { useAuth } from '../context/AuthContext'
 import { isLegacyUser } from '../utils/userPromo'
 
 export function AppLayout() {
-  const { user, isLoading } = useAuth()
+  const { user, isLoading, loginSignal } = useAuth()
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [showAdModal, setShowAdModal] = useState(false)
+
+  useEffect(() => {
+    if (loginSignal > 0) setShowAuthModal(true)
+  }, [loginSignal])
 
   useEffect(() => {
     if (isLoading) return
