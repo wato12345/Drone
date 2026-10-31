@@ -2553,8 +2553,7 @@ body {
   }
 
   .map-overlay {
-    left: 0.5rem;
-    bottom: 5.4rem;
+    display: none;
   }
 
   .kimi-chat {
