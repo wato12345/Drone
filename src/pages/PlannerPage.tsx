@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { MapView } from '../components/MapView'
 import { ControlPanel } from '../components/ControlPanel'
 import { KimiChat } from '../components/KimiChat'
@@ -19,9 +19,36 @@ export default function PlannerPage() {
     [planner.start, planner.end],
   )
   const weather = useWeather(weatherLocation)
+  const [mobilePane, setMobilePane] = useState<'map' | 'plan'>('map')
+
+  useEffect(() => {
+    if (mobilePane !== 'map') return
+    const timer = window.setTimeout(() => window.dispatchEvent(new Event('resize')), 60)
+    return () => window.clearTimeout(timer)
+  }, [mobilePane])
 
   return (
-    <div className="app-body">
+    <div className={`app-body pane-${mobilePane}`}>
+      <div className="planner-pane-switch" role="tablist" aria-label="Planner view">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mobilePane === 'map'}
+          className={mobilePane === 'map' ? 'active' : ''}
+          onClick={() => setMobilePane('map')}
+        >
+          Map
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mobilePane === 'plan'}
+          className={mobilePane === 'plan' ? 'active' : ''}
+          onClick={() => setMobilePane('plan')}
+        >
+          Plan
+        </button>
+      </div>
       <aside className="sidebar">
         <ControlPanel
           pickMode={planner.pickMode}
@@ -41,8 +68,14 @@ export default function PlannerPage() {
           error={planner.error}
           weather={weather.displayWeather}
           weatherLoading={weather.isLoading}
-          onPickStart={() => planner.setPickMode('start')}
-          onPickEnd={() => planner.setPickMode('end')}
+          onPickStart={() => {
+            planner.setPickMode('start')
+            setMobilePane('map')
+          }}
+          onPickEnd={() => {
+            planner.setPickMode('end')
+            setMobilePane('map')
+          }}
           onPlan={planner.planPaths}
           onClear={planner.clearAll}
           onResetDemo={planner.resetDemo}

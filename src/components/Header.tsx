@@ -26,7 +26,7 @@ export function Header({ onLoginClick }: HeaderProps) {
           <div className="header-icon">UAV</div>
           <div>
             <h1>Intelligent Drone Path Planning System</h1>
-            <p>Urban Low-Altitude Flight · Multi-Source Data Fusion · A* Path Optimization</p>
+            <p>Urban low-altitude A* planning</p>
           </div>
         </NavLink>
       </div>
